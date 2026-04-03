@@ -1,0 +1,57 @@
+appId: com.safephone.focus
+name: E2E — configure blocked domain rules (UI smoke)
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Finish setup"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "home_nav_domains"
+    timeout: 15000
+
+- tapOn:
+    id: "home_nav_domains"
+- tapOn:
+    id: "domain_pattern_field"
+- inputText: "distraction.example"
+- tapOn:
+    id: "domain_add"
+- extendedWaitUntil:
+    visible:
+      text: "distraction.example"
+    timeout: 5000
+- assertVisible:
+    text: "Blocked"
+
+# Second blocked pattern (suffix)
+- tapOn:
+    id: "domain_pattern_field"
+- eraseText
+- inputText: ".news.example"
+- tapOn:
+    id: "domain_add"
+- scrollUntilVisible:
+    element:
+      text: ".news.example"
+    direction: DOWN
+- assertVisible:
+    text: ".news.example"
+
+# Blocked app manual entry
+- tapOn:
+    id: "home_nav_blocked"
+- tapOn:
+    id: "blocked_manual_section"
+- tapOn:
+    id: "blocked_package_field"
+- inputText: "com.e2e.blocked.app"
+- tapOn:
+    id: "blocked_add"
+- scrollUntilVisible:
+    element:
+      text: "com.e2e.blocked.app"
+    direction: DOWN
+- assertVisible:
+    text: "com.e2e.blocked.app"

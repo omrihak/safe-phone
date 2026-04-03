@@ -1,0 +1,1 @@
+{"blockedPackages":["com.blocked.app"],"domainRules":[{"pattern":".okta.com","allowlist":false}],"calendarKeywords":["focus"]}

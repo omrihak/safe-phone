@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a1210" />
+    <meta
+      name="description"
+      content="You were redirected here by SafePhone focus mode. Your rules run on your device—take a breath and return to what matters."
+    />
+    <title>SafePhone — Focus mode</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <p class="badge">SafePhone</p>
+      <h1>You’re in focus mode</h1>
+      <p class="lead">
+        This page opened because something you tried to open is blocked by the focus rules you set on your phone.
+      </p>
+      <div class="card" role="note">
+        <p>
+          <strong>Your rules stay on your device.</strong>
+          SafePhone doesn’t send your browsing or app usage to this site. This is simply a calm place to land when a
+          distraction is paused.
+        </p>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="goBack">Go back</button>
+      </div>
+      <script>
+        document.getElementById("goBack").addEventListener("click", function () {
+          if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            this.textContent = "Close this tab when you’re ready";
+            this.disabled = true;
+          }
+        });
+      </script>
+      <p class="footnote">
+        Close the tab or press Home when you’re ready. To change what’s blocked, open the <strong>SafePhone</strong> app
+        on your device.
+      </p>
+    </main>
+  </body>
+</html>

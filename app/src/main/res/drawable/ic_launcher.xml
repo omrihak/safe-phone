@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Calm green: growth, life, digital wellbeing -->
+    <path
+        android:fillColor="#1B5E20"
+        android:pathData="M54,20c-18,0 -34,14 -34,34s16,34 34,34 34,-14 34,-34 -16,-34 -34,-34z" />
+    <!-- Shield: protection, safety -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,28 L72,35 L72,54 Q72,69 54,80 Q36,69 36,54 L36,35 Z" />
+    <!-- Leaf on shield: focus on living well -->
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M54,42c-6,0 -10,5 -10,12c0,7 5,13 10,17c5,-4 10,-10 10,-17c0,-7 -4,-12 -10,-12z" />
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M52,66h4v10h-4z" />
+    <path
+        android:fillColor="#1B5E20"
+        android:pathData="M54,46 Q50,52 54,60 Q58,52 54,46z" />
+</vector>

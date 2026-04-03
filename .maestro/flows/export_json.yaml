@@ -1,0 +1,22 @@
+appId: com.safephone.focus
+name: E2E — export rules JSON
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Finish"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "home_nav_export"
+    timeout: 15000
+- tapOn:
+    id: "home_nav_export"
+- tapOn:
+    id: "export_generate"
+- extendedWaitUntil:
+    visible:
+      text: "blockedPackages"
+    timeout: 10000
+- assertVisible:
+    text: "blockedPackages"

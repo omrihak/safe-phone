@@ -1,0 +1,29 @@
+appId: com.safephone.focus
+name: E2E — add tier app from home
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Finish"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "home_nav_tiers"
+    timeout: 15000
+- tapOn:
+    id: "home_nav_tiers"
+- tapOn:
+    id: "tiers_package_field"
+- inputText: "com.maestro.e2e.pkg"
+- tapOn:
+    id: "tiers_tier_field"
+- eraseText
+- inputText: "1"
+- tapOn:
+    id: "tiers_add"
+- scrollUntilVisible:
+    element:
+      text: "com.maestro.e2e.pkg"
+    direction: DOWN
+- assertVisible:
+    text: "com.maestro.e2e.pkg"
