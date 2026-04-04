@@ -31,10 +31,20 @@ import com.safephone.ui.theme.SafePhoneTheme
 
 class BlockOverlayActivity : ComponentActivity() {
 
+    private fun landingQueryParams(): Map<String, String> {
+        val map = linkedMapOf<String, String>()
+        intent.getStringExtra(EXTRA_REASON)?.trim()?.takeIf { it.isNotEmpty() }?.let { map["reason"] = it }
+        intent.getStringExtra(EXTRA_BLOCK_TYPE)?.trim()?.takeIf { it.isNotEmpty() }?.let { map["type"] = it }
+        intent.getStringExtra(EXTRA_HOST)?.trim()?.takeIf { it.isNotEmpty() }?.let { map["host"] = it }
+        intent.getStringExtra(EXTRA_BLOCKED_PACKAGE)?.trim()?.takeIf { it.isNotEmpty() }?.let { map["pkg"] = it }
+        return map
+    }
+
     private fun leaveToHome() {
         val browserPkg = intent.getStringExtra(EXTRA_BROWSER_PACKAGE)
+        val query = landingQueryParams()
         if (!browserPkg.isNullOrBlank()) {
-            BrowserNeutralTabLauncher.openNeutralTabThenClearSnapshot(applicationContext, browserPkg)
+            BrowserNeutralTabLauncher.openNeutralTabThenClearSnapshot(applicationContext, browserPkg, query)
         }
         startActivity(
             Intent(Intent.ACTION_MAIN)
@@ -108,8 +118,10 @@ class BlockOverlayActivity : ComponentActivity() {
                         if (landingUrl.isNotEmpty()) {
                             OutlinedButton(
                                 onClick = {
+                                    val uri = BrowserNeutralTabLauncher.focusLandingUri(landingQueryParams())
+                                        ?: Uri.parse(landingUrl)
                                     startActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse(landingUrl))
+                                        Intent(Intent.ACTION_VIEW, uri)
                                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                                     )
                                 },
@@ -136,13 +148,24 @@ class BlockOverlayActivity : ComponentActivity() {
         private const val EXTRA_REASON = "reason"
         private const val EXTRA_DISMISS = "dismiss"
         private const val EXTRA_BROWSER_PACKAGE = "browser_package"
+        private const val EXTRA_BLOCK_TYPE = "block_type"
+        private const val EXTRA_HOST = "blocked_host"
+        private const val EXTRA_BLOCKED_PACKAGE = "blocked_package"
         private var current: BlockOverlayActivity? = null
 
         /**
          * @param browserPackage When set (foreground was a browser), "Go to home" opens the focus landing
          * URL (then about:newtab / about:blank) in that browser so reopening does not land on the blocked page.
+         * @param blockType Landing query `type`: `app`, `web`, or `browser_lock`.
          */
-        fun show(context: Context, reason: String, browserPackage: String? = null) {
+        fun show(
+            context: Context,
+            reason: String,
+            browserPackage: String? = null,
+            blockType: String = "",
+            blockedHost: String? = null,
+            blockedPackage: String? = null,
+        ) {
             if (current != null) return
             val i = Intent(context, BlockOverlayActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -150,6 +173,9 @@ class BlockOverlayActivity : ComponentActivity() {
                 if (!browserPackage.isNullOrBlank()) {
                     putExtra(EXTRA_BROWSER_PACKAGE, browserPackage)
                 }
+                if (blockType.isNotBlank()) putExtra(EXTRA_BLOCK_TYPE, blockType)
+                if (!blockedHost.isNullOrBlank()) putExtra(EXTRA_HOST, blockedHost)
+                if (!blockedPackage.isNullOrBlank()) putExtra(EXTRA_BLOCKED_PACKAGE, blockedPackage)
             }
             context.startActivity(i)
         }

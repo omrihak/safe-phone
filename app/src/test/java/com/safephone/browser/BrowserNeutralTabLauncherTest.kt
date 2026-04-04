@@ -1,5 +1,6 @@
 package com.safephone.browser
 
+import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.safephone.BuildConfig
 import org.junit.Assert.assertEquals
@@ -39,5 +40,22 @@ class BrowserNeutralTabLauncherTest {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val fromBuild = BrowserNeutralTabLauncher.orderedBlockExitUriSpecs(BuildConfig.BLOCK_LANDING_URL)
         assertEquals(fromBuild, BrowserNeutralTabLauncher.uriCandidates(ctx, "com.android.chrome"))
+    }
+
+    @Test
+    fun ordered_specs_append_encoded_query_on_landing() {
+        val list = BrowserNeutralTabLauncher.orderedBlockExitUriSpecs(
+            "https://example.com/focus/",
+            mapOf("reason" to "Blocked domain", "type" to "web", "host" to "news.example"),
+        )
+        val u = Uri.parse(list.first())
+        assertEquals("https", u.scheme)
+        assertEquals("example.com", u.host)
+        assertEquals("/focus/", u.path)
+        assertEquals("Blocked domain", u.getQueryParameter("reason"))
+        assertEquals("web", u.getQueryParameter("type"))
+        assertEquals("news.example", u.getQueryParameter("host"))
+        assertEquals("about:newtab", list[1])
+        assertEquals("about:blank", list[2])
     }
 }

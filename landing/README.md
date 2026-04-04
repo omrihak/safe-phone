@@ -30,6 +30,19 @@ After the first successful workflow run, the site is available at:
 
 Set `safephone.blockLandingUrl` in the root [`gradle.properties`](../gradle.properties) to that exact URL (a trailing slash is fine). Optional: `safephone.blockLandingUrl.debug` overrides the value for debug builds only. Rebuild the app so blocked browser exits open this page first.
 
+## Query string (opened from the app)
+
+When the user is sent here from SafePhone after a block, the URL may include:
+
+| Parameter | Meaning |
+|-----------|---------|
+| `reason` | Same short message as the in-app overlay (e.g. `Blocked domain`, `Blocked list`). |
+| `type` | `web`, `app`, or `browser_lock`. |
+| `host` | Normalized hostname when a site was blocked (optional). |
+| `pkg` | Blocked app package name when an app was blocked (optional). |
+
+These are only added by the app; opening the bare URL shows the generic copy. **Note:** Query values appear in browser history and server/access logs—do not put secrets in them.
+
 ## Manual deploy (optional)
 
 With [Wrangler](https://developers.cloudflare.com/workers/wrangler/install-and-update/) installed and logged in (`wrangler login`):

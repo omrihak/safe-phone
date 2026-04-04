@@ -18,6 +18,12 @@
       <p class="lead">
         This page opened because something you tried to open is blocked by the focus rules you set on your phone.
       </p>
+      <div id="reasonPanel" class="card reason-panel" hidden>
+        <p class="reason-kicker">Why you’re here</p>
+        <p id="reasonText" class="reason-main"></p>
+        <p id="reasonHostLine" class="reason-detail" hidden></p>
+        <p id="reasonPkgLine" class="reason-detail" hidden></p>
+      </div>
       <div class="card" role="note">
         <p>
           <strong>Your rules stay on your device.</strong>
@@ -29,6 +35,45 @@
         <button type="button" class="btn btn-primary" id="goBack">Go back</button>
       </div>
       <script>
+        (function () {
+          var params = new URLSearchParams(window.location.search);
+          var reason = params.get("reason");
+          var type = params.get("type");
+          var host = params.get("host");
+          var pkg = params.get("pkg");
+
+          var panel = document.getElementById("reasonPanel");
+          var reasonText = document.getElementById("reasonText");
+          var hostLine = document.getElementById("reasonHostLine");
+          var pkgLine = document.getElementById("reasonPkgLine");
+
+          if (reason && panel && reasonText) {
+            panel.hidden = false;
+            reasonText.textContent = reason;
+          }
+
+          var typeHint = "";
+          if (type === "web") typeHint = "Website matched your block rules.";
+          else if (type === "app") typeHint = "An app was blocked by your rules.";
+          else if (type === "browser_lock") typeHint = "Strict browser lock is active (navigation without a clear URL).";
+
+          if (typeHint && reasonText && reason) {
+            var sub = document.createElement("p");
+            sub.className = "reason-type-hint";
+            sub.textContent = typeHint;
+            reasonText.insertAdjacentElement("afterend", sub);
+          }
+
+          if (host && hostLine) {
+            hostLine.hidden = false;
+            hostLine.textContent = "Site: " + host;
+          }
+          if (pkg && pkgLine) {
+            pkgLine.hidden = false;
+            pkgLine.textContent = "App package: " + pkg;
+          }
+        })();
+
         document.getElementById("goBack").addEventListener("click", function () {
           if (window.history.length > 1) {
             window.history.back();

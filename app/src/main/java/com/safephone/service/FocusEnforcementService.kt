@@ -131,7 +131,25 @@ class FocusEnforcementService : Service() {
                 if (decision.blockApp || decision.blockWebOverlay) {
                     val browserPkg =
                         if (fg != null && PolicyEngine.isBrowserPackage(fg)) fg else null
-                    BlockOverlayActivity.show(applicationContext, decision.reason, browserPkg)
+                    val blockType = when {
+                        decision.blockWebOverlay &&
+                            decision.reason == "Strict browser lock (no URL)" -> "browser_lock"
+                        decision.blockWebOverlay -> "web"
+                        decision.blockApp -> "app"
+                        else -> ""
+                    }
+                    val landingHost =
+                        if (decision.blockWebOverlay) host?.takeIf { it.isNotBlank() } else null
+                    val landingPkg =
+                        if (decision.blockApp) fg?.takeIf { it.isNotBlank() } else null
+                    BlockOverlayActivity.show(
+                        applicationContext,
+                        decision.reason,
+                        browserPkg,
+                        blockType,
+                        landingHost,
+                        landingPkg,
+                    )
                 } else {
                     BlockOverlayActivity.dismiss(applicationContext)
                 }
