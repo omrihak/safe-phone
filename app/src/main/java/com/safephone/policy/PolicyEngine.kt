@@ -1,7 +1,6 @@
 package com.safephone.policy
 
 import com.safephone.data.FocusProfileEntity
-import com.safephone.data.ScheduleWindowEntity
 import java.time.Instant
 import java.time.ZoneId
 
@@ -10,7 +9,6 @@ data class PolicyInput(
     val zone: ZoneId,
     val selfPackageName: String,
     val activeProfile: FocusProfileEntity?,
-    val schedules: List<ScheduleWindowEntity>,
     val blockedPackages: Set<String>,
     val domainBlockPatterns: List<String>,
     val breakEndMs: Long?,
@@ -25,8 +23,6 @@ data class PolicyInput(
     val currentWebHost: String?,
     val strictBrowserLock: Boolean,
     val calendarStricterActive: Boolean,
-    /** Pomodoro-style override: treat schedule as active until this time. */
-    val forcedEnforceUntilMs: Long? = null,
 )
 
 data class PolicyDecision(
@@ -46,11 +42,7 @@ object PolicyEngine {
             return idle("No active profile")
         }
 
-        val zoned = input.now.atZone(input.zone)
-
-        val forced = input.forcedEnforceUntilMs != null &&
-            input.now.toEpochMilli() < input.forcedEnforceUntilMs
-        val withinSchedule = forced || isWithinSchedule(zoned, input.schedules)
+        val withinSchedule = true
         val onBreak = input.breakEndMs != null && input.now.toEpochMilli() < input.breakEndMs
         val enforcing = withinSchedule && !onBreak && !input.activeProfile.softEnforcement
 
@@ -74,7 +66,7 @@ object PolicyEngine {
                 blockApp = false,
                 blockWebOverlay = false,
                 applyGrayscale = false,
-                reason = "Outside schedule or on break / soft mode",
+                reason = "On break / soft mode",
             )
         }
 
@@ -164,22 +156,6 @@ object PolicyEngine {
         applyGrayscale = false,
         reason = reason,
     )
-
-    fun isWithinSchedule(zoned: java.time.ZonedDateTime, windows: List<ScheduleWindowEntity>): Boolean {
-        if (windows.isEmpty()) return false
-        val dow = zoned.dayOfWeek.value
-        val minuteOfDay = zoned.hour * 60 + zoned.minute
-        return windows.any { w ->
-            if (w.dayOfWeek != dow) return@any false
-            val s = w.startMinuteOfDay
-            val e = w.endMinuteOfDay
-            if (s <= e) {
-                minuteOfDay in s until e
-            } else {
-                minuteOfDay >= s || minuteOfDay < e
-            }
-        }
-    }
 
     fun normalizeHost(host: String): String {
         var h = host.lowercase().trim()

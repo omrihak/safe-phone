@@ -31,9 +31,6 @@
           distraction is paused.
         </p>
       </div>
-      <div class="actions">
-        <button type="button" class="btn btn-primary" id="goBack">Go back</button>
-      </div>
       <script>
         (function () {
           var params = new URLSearchParams(window.location.search);
@@ -73,15 +70,6 @@
             pkgLine.textContent = "App package: " + pkg;
           }
         })();
-
-        document.getElementById("goBack").addEventListener("click", function () {
-          if (window.history.length > 1) {
-            window.history.back();
-          } else {
-            this.textContent = "Close this tab when you’re ready";
-            this.disabled = true;
-          }
-        });
       </script>
       <p class="footnote">
         Close the tab or press Home when you’re ready. To change what’s blocked, open the <strong>SafePhone</strong> app

@@ -10,19 +10,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [
         FocusProfileEntity::class,
-        ScheduleWindowEntity::class,
         BlockedAppEntity::class,
         DomainRuleEntity::class,
         AppBudgetEntity::class,
         BreakPolicyEntity::class,
         CalendarKeywordEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun focusProfileDao(): FocusProfileDao
-    abstract fun scheduleWindowDao(): ScheduleWindowDao
     abstract fun blockedAppDao(): BlockedAppDao
     abstract fun domainRuleDao(): DomainRuleDao
     abstract fun appBudgetDao(): AppBudgetDao
@@ -48,6 +46,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `schedule_windows`")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -63,7 +67,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "safephone.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

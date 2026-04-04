@@ -42,17 +42,6 @@ class DatabaseDaoInstrumentedTest {
     }
 
     @Test
-    fun scheduleWindow_forProfile() = runBlocking {
-        val id = db.focusProfileDao().insert(FocusProfileEntity(name = "Work", preset = "WORK_HOURS"))
-        db.scheduleWindowDao().upsert(
-            ScheduleWindowEntity(profileId = id, dayOfWeek = 3, startMinuteOfDay = 9 * 60, endMinuteOfDay = 17 * 60),
-        )
-        val windows = db.scheduleWindowDao().getForProfile(id)
-        assertEquals(1, windows.size)
-        assertEquals(3, windows[0].dayOfWeek)
-    }
-
-    @Test
     fun appBudget_upsert() = runBlocking {
         db.appBudgetDao().upsert(AppBudgetEntity("com.slack", 45))
         assertEquals(45, db.appBudgetDao().getAll().first { it.packageName == "com.slack" }.maxMinutesPerDay)

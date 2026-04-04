@@ -1,31 +1,21 @@
 package com.safephone.policy
 
 import com.safephone.data.FocusProfileEntity
-import com.safephone.data.ScheduleWindowEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import java.time.ZoneId
-import java.time.ZonedDateTime
 
 class PolicyEngineTest {
 
     private val zone = ZoneId.of("Europe/Paris")
     private val selfPkg = "com.safephone.focus"
 
-    private fun scheduleAllDayForInstant(now: Instant, profileId: Long = 1L): List<ScheduleWindowEntity> {
-        val dow = now.atZone(zone).dayOfWeek.value
-        return listOf(
-            ScheduleWindowEntity(0, profileId, dayOfWeek = dow, startMinuteOfDay = 0, endMinuteOfDay = 24 * 60),
-        )
-    }
-
     private fun baseInput(
         now: Instant,
         profile: FocusProfileEntity? = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS"),
-        schedules: List<ScheduleWindowEntity>? = null,
         fg: String? = "com.other.app",
         webHost: String? = null,
         blocked: Set<String> = emptySet(),
@@ -37,15 +27,12 @@ class PolicyEngineTest {
         budgetOpens: Map<String, Int> = emptyMap(),
         strictBrowser: Boolean = false,
         calendarStricter: Boolean = false,
-        forcedUntil: Long? = null,
-    ): PolicyInput {
-        val sched = schedules ?: scheduleAllDayForInstant(now, profile?.id ?: 1L)
-        return PolicyInput(
+    ): PolicyInput =
+        PolicyInput(
             now = now,
             zone = zone,
             selfPackageName = selfPkg,
             activeProfile = profile,
-            schedules = sched,
             blockedPackages = blocked,
             domainBlockPatterns = blockDomains,
             breakEndMs = breakEnd,
@@ -60,35 +47,7 @@ class PolicyEngineTest {
             currentWebHost = webHost,
             strictBrowserLock = strictBrowser,
             calendarStricterActive = calendarStricter,
-            forcedEnforceUntilMs = forcedUntil,
         )
-    }
-
-    @Test
-    fun schedule_overnight_span_same_day_start() {
-        val monday11pm = ZonedDateTime.of(2026, 4, 6, 23, 0, 0, 0, zone)
-        val windows = listOf(
-            ScheduleWindowEntity(0, 1, dayOfWeek = 1, startMinuteOfDay = 22 * 60, endMinuteOfDay = 6 * 60),
-        )
-        assertTrue(PolicyEngine.isWithinSchedule(monday11pm, windows))
-    }
-
-    @Test
-    fun schedule_simple_window() {
-        val monday10am = ZonedDateTime.of(2026, 4, 6, 10, 0, 0, 0, zone)
-        val windows = listOf(
-            ScheduleWindowEntity(0, 1, dayOfWeek = 1, startMinuteOfDay = 9 * 60, endMinuteOfDay = 17 * 60),
-        )
-        assertTrue(PolicyEngine.isWithinSchedule(monday10am, windows))
-        val monday8pm = ZonedDateTime.of(2026, 4, 6, 20, 0, 0, 0, zone)
-        assertFalse(PolicyEngine.isWithinSchedule(monday8pm, windows))
-    }
-
-    @Test
-    fun schedule_empty_always_false() {
-        val monday10am = ZonedDateTime.of(2026, 4, 6, 10, 0, 0, 0, zone)
-        assertFalse(PolicyEngine.isWithinSchedule(monday10am, emptyList()))
-    }
 
     @Test
     fun domain_blocked_suffix_okta() {
@@ -131,6 +90,7 @@ class PolicyEngineTest {
         )
         val d = PolicyEngine.evaluate(input)
         assertTrue(d.blockApp)
+        assertTrue(d.withinSchedule)
     }
 
     @Test
@@ -175,27 +135,6 @@ class PolicyEngineTest {
         val d = PolicyEngine.evaluate(input)
         assertFalse(d.enforcing)
         assertFalse(d.blockApp)
-    }
-
-    @Test
-    fun forced_enforce_outside_schedule_window() {
-        val monday10am = ZonedDateTime.of(2026, 4, 6, 10, 0, 0, 0, zone).toInstant()
-        val windows = listOf(
-            ScheduleWindowEntity(0, 1, dayOfWeek = 2, startMinuteOfDay = 9 * 60, endMinuteOfDay = 17 * 60),
-        )
-        val forcedUntil = monday10am.toEpochMilli() + 60_000
-        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
-        val input = baseInput(
-            now = monday10am,
-            profile = profile,
-            schedules = windows,
-            fg = "com.blocked.in.schedule",
-            blocked = setOf("com.blocked.in.schedule"),
-            forcedUntil = forcedUntil,
-        )
-        val d = PolicyEngine.evaluate(input)
-        assertTrue(d.withinSchedule)
-        assertTrue(d.blockApp)
     }
 
     @Test
@@ -286,16 +225,12 @@ class PolicyEngineTest {
     }
 
     @Test
-    fun calendar_stricter_enforces_when_off_schedule() {
-        val monday10am = ZonedDateTime.of(2026, 4, 6, 10, 0, 0, 0, zone).toInstant()
-        val windows = listOf(
-            ScheduleWindowEntity(0, 1, dayOfWeek = 2, startMinuteOfDay = 0, endMinuteOfDay = 24 * 60),
-        )
+    fun calendar_stricter_still_enforces_blocked_app() {
+        val now = Instant.now()
         val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
         val input = baseInput(
-            now = monday10am,
+            now = now,
             profile = profile,
-            schedules = windows,
             fg = "com.blocked",
             blocked = setOf("com.blocked"),
             calendarStricter = true,

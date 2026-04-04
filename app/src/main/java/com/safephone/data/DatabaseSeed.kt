@@ -12,17 +12,7 @@ suspend fun seedDatabaseIfEmpty(db: AppDatabase) = withContext(Dispatchers.IO) {
         useTierB = true,
         useTierC = false,
     )
-    val profileId = db.focusProfileDao().insert(defaultProfile)
-    for (d in 1..7) {
-        db.scheduleWindowDao().upsert(
-            ScheduleWindowEntity(
-                profileId = profileId,
-                dayOfWeek = d,
-                startMinuteOfDay = 0,
-                endMinuteOfDay = 24 * 60,
-            ),
-        )
-    }
+    db.focusProfileDao().insert(defaultProfile)
     db.breakPolicyDao().upsert(BreakPolicyEntity())
     db.domainRuleDao().upsert(DomainRuleEntity(pattern = "twitter.com", isAllowlist = false))
     db.domainRuleDao().upsert(DomainRuleEntity(pattern = "x.com", isAllowlist = false))

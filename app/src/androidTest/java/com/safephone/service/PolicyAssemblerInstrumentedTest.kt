@@ -5,7 +5,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.safephone.data.AppDatabase
 import com.safephone.data.FocusPreferences
 import com.safephone.data.FocusProfileEntity
-import com.safephone.data.ScheduleWindowEntity
 import com.safephone.data.BlockedAppEntity
 import com.safephone.policy.PolicyEngine
 import com.safephone.test.FakeCalendarKeywordChecker
@@ -16,9 +15,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.time.Instant
-import java.time.ZoneId
-
 @RunWith(AndroidJUnit4::class)
 class PolicyAssemblerInstrumentedTest {
 
@@ -43,10 +39,6 @@ class PolicyAssemblerInstrumentedTest {
     fun build_withFakeUsage_blocksWhenBlockedAndEnforcing() = runBlocking {
         val profileId = db.focusProfileDao().insert(FocusProfileEntity(name = "P", preset = "DEEP_WORK"))
         prefs.setActiveProfileId(profileId)
-        val dow = Instant.now().atZone(ZoneId.systemDefault()).dayOfWeek.value
-        db.scheduleWindowDao().upsert(
-            ScheduleWindowEntity(profileId = profileId, dayOfWeek = dow, startMinuteOfDay = 0, endMinuteOfDay = 24 * 60),
-        )
         db.blockedAppDao().upsert(BlockedAppEntity("com.social"))
         usage.foregroundPackage = "com.social"
         usage.usageSinceMidnight = emptyMap()

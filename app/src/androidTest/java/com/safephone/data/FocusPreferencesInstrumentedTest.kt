@@ -30,17 +30,12 @@ class FocusPreferencesInstrumentedTest {
     }
 
     @Test
-    fun activeProfileId_and_forcedEnforce() = runBlocking {
+    fun activeProfileId_roundTrip() = runBlocking {
         val prefs = FocusPreferences(context)
         prefs.setActiveProfileId(42L)
         assertEquals(42L, prefs.activeProfileId.first())
         prefs.setActiveProfileId(null)
         assertNull(prefs.activeProfileId.first())
-        val until = System.currentTimeMillis() + 10_000L
-        prefs.setForcedEnforceUntil(until)
-        assertEquals(until, prefs.forcedEnforceUntilMs.first())
-        prefs.setForcedEnforceUntil(null)
-        assertNull(prefs.forcedEnforceUntilMs.first())
     }
 
     @Test

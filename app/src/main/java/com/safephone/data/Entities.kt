@@ -1,7 +1,6 @@
 package com.safephone.data
 
 import androidx.room.Entity
-import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "profiles")
@@ -16,19 +15,6 @@ data class FocusProfileEntity(
     val strictBrowserLock: Boolean = false,
     val enforceGrayscale: Boolean = false,
     val softEnforcement: Boolean = false,
-)
-
-@Entity(
-    tableName = "schedule_windows",
-    indices = [Index("profileId")],
-)
-data class ScheduleWindowEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val profileId: Long,
-    /** java.time.DayOfWeek value 1-7 (Monday=1 .. Sunday=7) */
-    val dayOfWeek: Int,
-    val startMinuteOfDay: Int,
-    val endMinuteOfDay: Int,
 )
 
 @Entity(tableName = "blocked_apps")

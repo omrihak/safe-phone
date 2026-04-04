@@ -40,6 +40,25 @@ class BlockOverlayActivity : ComponentActivity() {
         return map
     }
 
+    /** Opens the configured landing URL immediately (blocked browser or default handler). */
+    private fun openLandingForCurrentBlock() {
+        val browserPkg = intent.getStringExtra(EXTRA_BROWSER_PACKAGE)
+        val query = landingQueryParams()
+        if (!browserPkg.isNullOrBlank()) {
+            BrowserNeutralTabLauncher.openNeutralTabThenClearSnapshot(applicationContext, browserPkg, query)
+            return
+        }
+        val url = BuildConfig.BLOCK_LANDING_URL.trim()
+        if (url.isEmpty()) return
+        val uri = BrowserNeutralTabLauncher.focusLandingUri(query) ?: Uri.parse(url)
+        try {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        } catch (_: Exception) {
+        }
+    }
+
     private fun leaveToHome() {
         val browserPkg = intent.getStringExtra(EXTRA_BROWSER_PACKAGE)
         val query = landingQueryParams()
@@ -70,6 +89,9 @@ class BlockOverlayActivity : ComponentActivity() {
             setTurnScreenOn(true)
         }
         current = this
+        if (savedInstanceState == null) {
+            openLandingForCurrentBlock()
+        }
         val reason = intent.getStringExtra(EXTRA_REASON) ?: ""
         val landingUrl = BuildConfig.BLOCK_LANDING_URL.trim()
         setContent {

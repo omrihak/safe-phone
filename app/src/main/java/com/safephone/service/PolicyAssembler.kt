@@ -14,20 +14,15 @@ class PolicyAssembler(
     private val usageStats: UsageStatsReader,
     private val calendar: CalendarKeywordChecker,
 ) {
-    private val zone: ZoneId = ZoneId.systemDefault()
-
     suspend fun build(
         foregroundPackage: String?,
         webHost: String?,
     ): PolicyInput {
+        // Resolve each build so daily budgets track the phone's current default timezone (midnight local).
+        val zone = ZoneId.systemDefault()
         val profileId = prefs.activeProfileId.first()
         val profile = profileId?.let { db.focusProfileDao().getById(it) }
             ?: db.focusProfileDao().getAll().firstOrNull()
-        val schedules = if (profile != null) {
-            db.scheduleWindowDao().getForProfile(profile.id)
-        } else {
-            emptyList()
-        }
         val blocked = db.blockedAppDao().getAll().map { it.packageName }.toSet()
         val domains = db.domainRuleDao().getAll()
         val block = domains.filter { !it.isAllowlist }.map { it.pattern }
@@ -43,14 +38,12 @@ class PolicyAssembler(
         val calendarOn = prefs.calendarAware.first()
         val keywords = db.calendarKeywordDao().getAll()
         val calendarStricter = calendarOn && calendar.isFocusKeywordActiveNow(keywords)
-        val forcedUntil = prefs.forcedEnforceUntilMs.first()
 
         return PolicyInput(
             now = Instant.now(),
             zone = zone,
             selfPackageName = BuildConfig.APPLICATION_ID,
             activeProfile = profile,
-            schedules = schedules,
             blockedPackages = blocked,
             domainBlockPatterns = block,
             breakEndMs = breakEnd,
@@ -65,7 +58,6 @@ class PolicyAssembler(
             currentWebHost = webHost,
             strictBrowserLock = profile?.strictBrowserLock == true,
             calendarStricterActive = calendarStricter,
-            forcedEnforceUntilMs = forcedUntil,
         )
     }
 }

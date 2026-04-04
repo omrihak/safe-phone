@@ -4,7 +4,7 @@
     <string name="accessibility_service_description">Reads browser address fields to block distracting sites on device. No data leaves your phone.</string>
     <string name="fg_channel_name">Focus enforcement</string>
     <string name="fg_notification_title">Focus protection on</string>
-    <string name="fg_notification_text">Blocking according to your schedule and rules.</string>
+    <string name="fg_notification_text">Blocking according to your rules.</string>
     <string name="special_use_fgs">Personal focus and screen-time enforcement</string>
     <string name="widget_description">Toggle focus enforcement</string>
     <string name="widget_toggle">Focus</string>

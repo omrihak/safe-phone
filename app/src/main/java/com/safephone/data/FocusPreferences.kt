@@ -27,8 +27,6 @@ class FocusPreferences(private val context: Context) {
         prefs[KEY_MINDFUL]?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
     }
 
-    val forcedEnforceUntilMs: Flow<Long?> = context.dataStore.data.map { it[KEY_FORCE_UNTIL] }
-
     val breakEndEpochMs: Flow<Long?> = context.dataStore.data.map { it[KEY_BREAK_END] }
     val breaksUsedToday: Flow<Int> = context.dataStore.data.map { it[KEY_BREAKS_USED] ?: 0 }
     val breakDayEpochDay: Flow<Long> = context.dataStore.data.map { it[KEY_BREAK_DAY] ?: 0L }
@@ -83,12 +81,6 @@ class FocusPreferences(private val context: Context) {
         context.dataStore.edit { it.remove(KEY_BREAK_END) }
     }
 
-    suspend fun setForcedEnforceUntil(epochMs: Long?) {
-        context.dataStore.edit {
-            if (epochMs == null) it.remove(KEY_FORCE_UNTIL) else it[KEY_FORCE_UNTIL] = epochMs
-        }
-    }
-
     companion object {
         private val KEY_ONBOARDING = booleanPreferencesKey("onboarding_done")
         private val KEY_ENFORCEMENT = booleanPreferencesKey("enforcement")
@@ -102,6 +94,5 @@ class FocusPreferences(private val context: Context) {
         private val KEY_BREAKS_USED = intPreferencesKey("breaks_used")
         private val KEY_BREAK_DAY = longPreferencesKey("break_day")
         private val KEY_LAST_BREAK_END = longPreferencesKey("last_break_end_ms")
-        private val KEY_FORCE_UNTIL = longPreferencesKey("force_enforce_until_ms")
     }
 }

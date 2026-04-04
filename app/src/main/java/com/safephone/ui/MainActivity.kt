@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Android
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Coffee
@@ -63,7 +62,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -97,7 +95,6 @@ import com.safephone.SafePhoneApp
 import com.safephone.data.AppBudgetEntity
 import com.safephone.data.BlockedAppEntity
 import com.safephone.data.DomainRuleEntity
-import com.safephone.data.ScheduleWindowEntity
 import com.safephone.export.RulesExporter
 import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
@@ -107,11 +104,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalTime
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import kotlin.math.roundToInt
 
 private data class HomeDestination(
     val route: String,
@@ -119,35 +112,6 @@ private data class HomeDestination(
     val subtitle: String,
     val imageVector: ImageVector,
 )
-
-private val scheduleWeekdayOptions: List<Pair<String, Int>> = listOf(
-    "Monday" to 1,
-    "Tuesday" to 2,
-    "Wednesday" to 3,
-    "Thursday" to 4,
-    "Friday" to 5,
-    "Saturday" to 6,
-    "Sunday" to 7,
-)
-
-private fun formatScheduleHourLabel(hour: Int): String =
-    LocalTime.of(hour.coerceIn(0, 23), 0)
-        .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
-
-private fun formatMinuteOfDayLabel(minuteOfDay: Int): String {
-    val m = minuteOfDay.coerceIn(0, 24 * 60 - 1)
-    return LocalTime.of(m / 60, m % 60)
-        .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
-}
-
-private fun dayOfWeekLabel(dow: Int): String =
-    scheduleWeekdayOptions.find { it.second == dow }?.first ?: "Day $dow"
-
-private fun scheduleWindowSummary(w: ScheduleWindowEntity): String {
-    val from = formatMinuteOfDayLabel(w.startMinuteOfDay)
-    val to = formatMinuteOfDayLabel(w.endMinuteOfDay)
-    return "${dayOfWeekLabel(w.dayOfWeek)} · $from – $to"
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -227,11 +191,6 @@ class MainActivity : ComponentActivity() {
                     composable("domains") {
                         FeatureScaffold(nav, "Domain rules") { padding ->
                             DomainListRoute(app, Modifier.padding(padding))
-                        }
-                    }
-                    composable("schedules") {
-                        FeatureScaffold(nav, "Schedules") { padding ->
-                            SchedulesRoute(app, Modifier.padding(padding))
                         }
                     }
                     composable("budgets") {
@@ -413,7 +372,6 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
         listOf(
             HomeDestination("blocked", "Blocked apps", "Always blocked when enforcing", Icons.Filled.Block),
             HomeDestination("domains", "Domain rules", "Block sites in the browser", Icons.Outlined.Language),
-            HomeDestination("schedules", "Schedules", "When each profile applies", Icons.Outlined.CalendarMonth),
             HomeDestination("budgets", "Daily budgets", "Per-app time limits", Icons.Outlined.Timer),
             HomeDestination("breaks", "Break policy", "How breaks work", Icons.Outlined.Coffee),
             HomeDestination("export", "Export rules", "Share JSON backup", Icons.Outlined.UploadFile),
@@ -423,7 +381,6 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
         mapOf(
             "blocked" to SafePhoneTestTags.HOME_NAV_BLOCKED,
             "domains" to SafePhoneTestTags.HOME_NAV_DOMAINS,
-            "schedules" to SafePhoneTestTags.HOME_NAV_SCHEDULES,
             "budgets" to SafePhoneTestTags.HOME_NAV_BUDGETS,
             "breaks" to SafePhoneTestTags.HOME_NAV_BREAKS,
             "export" to SafePhoneTestTags.HOME_NAV_EXPORT,
@@ -872,190 +829,6 @@ private fun RowSwitch(
 }
 
 @Composable
-private fun SchedulesRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
-    val db = app.database
-    val profiles by db.focusProfileDao().observeAll().collectAsState(initial = emptyList())
-    val scope = rememberCoroutineScope()
-    var profileId by remember { mutableStateOf<Long?>(null) }
-    LaunchedEffect(profiles) {
-        if (profileId == null && profiles.isNotEmpty()) profileId = profiles.first().id
-        if (profileId != null && profiles.none { it.id == profileId }) {
-            profileId = profiles.firstOrNull()?.id
-        }
-    }
-    val windows by db.scheduleWindowDao().observeForProfile(profileId ?: 0L).collectAsState(initial = emptyList())
-    var selectedDay by remember { mutableStateOf(1) }
-    var selectedStartHour by remember { mutableStateOf(9) }
-    var selectedEndHour by remember { mutableStateOf(17) }
-    val overnightBlock = selectedStartHour > selectedEndHour
-    Column(
-        modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            "Pick when a focus profile is active. Outside these times, that profile’s rules do not apply.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (profiles.isEmpty()) {
-            Text(
-                "No profiles yet. Finish onboarding or add a profile elsewhere first.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            return@Column
-        }
-        Text("Profile", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            items(profiles, key = { it.id }) { p ->
-                FilterChip(
-                    selected = p.id == profileId,
-                    onClick = { profileId = p.id },
-                    label = { Text(p.name) },
-                )
-            }
-        }
-        Text("Add a time block", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        Text(
-            "Day",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(SafePhoneTestTags.SCHEDULE_DAY_FIELD),
-        ) {
-            items(scheduleWeekdayOptions, key = { it.second }) { (label, dow) ->
-                FilterChip(
-                    selected = selectedDay == dow,
-                    onClick = { selectedDay = dow },
-                    label = { Text(label) },
-                )
-            }
-        }
-        Text(
-            "From ${formatScheduleHourLabel(selectedStartHour)}",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Slider(
-            value = selectedStartHour.toFloat(),
-            onValueChange = { selectedStartHour = it.roundToInt().coerceIn(0, 23) },
-            valueRange = 0f..23f,
-            steps = 22,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(SafePhoneTestTags.SCHEDULE_START_HOUR),
-        )
-        Text(
-            "Through ${formatScheduleHourLabel(selectedEndHour)} (end of that hour)",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Slider(
-            value = selectedEndHour.toFloat(),
-            onValueChange = { selectedEndHour = it.roundToInt().coerceIn(0, 23) },
-            valueRange = 0f..23f,
-            steps = 22,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(SafePhoneTestTags.SCHEDULE_END_HOUR),
-        )
-        if (overnightBlock) {
-            Text(
-                "End is earlier than start, so this block spans overnight (into the next morning).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Button(
-            onClick = {
-                val pid = profileId ?: return@Button
-                val sh = selectedStartHour.coerceIn(0, 23)
-                val eh = selectedEndHour.coerceIn(0, 23)
-                scope.launch {
-                    db.scheduleWindowDao().upsert(
-                        ScheduleWindowEntity(
-                            profileId = pid,
-                            dayOfWeek = selectedDay,
-                            startMinuteOfDay = sh * 60,
-                            endMinuteOfDay = eh * 60 + 59,
-                        ),
-                    )
-                }
-            },
-            enabled = profileId != null,
-            modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.SCHEDULE_ADD),
-        ) { Text("Add this time block") }
-        OutlinedButton(
-            onClick = {
-                val pid = profileId ?: return@OutlinedButton
-                scope.launch {
-                    for (dow in 1..5) {
-                        db.scheduleWindowDao().upsert(
-                            ScheduleWindowEntity(
-                                profileId = pid,
-                                dayOfWeek = dow,
-                                startMinuteOfDay = 9 * 60,
-                                endMinuteOfDay = 17 * 60 + 59,
-                            ),
-                        )
-                    }
-                }
-            },
-            enabled = profileId != null,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Add Mon–Fri, 9:00 – 5:00") }
-        Text("Saved for this profile", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        if (windows.isEmpty()) {
-            Text(
-                "No blocks yet. Add one above, or use the weekday shortcut.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            windows.forEach { w ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                ) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            scheduleWindowSummary(w),
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp, vertical = 10.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        IconButton(
-                            onClick = {
-                                scope.launch { db.scheduleWindowDao().delete(w.id) }
-                            },
-                        ) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Remove time block")
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun BudgetsRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val db = app.database
@@ -1070,17 +843,17 @@ private fun BudgetsRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
     var launchable by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var usageMs by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     var usageOpens by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
-    val usageZone = remember { ZoneId.systemDefault() }
     LaunchedEffect(Unit) {
         launchable = context.loadLaunchableApps()
     }
     LaunchedEffect(app.usageStatsRepository) {
         while (isActive) {
+            val zone = ZoneId.systemDefault()
             val ms = withContext(Dispatchers.Default) {
-                app.usageStatsRepository.usageMsSinceLocalMidnight(usageZone)
+                app.usageStatsRepository.usageMsSinceLocalMidnight(zone)
             }
             val opens = withContext(Dispatchers.Default) {
-                app.usageStatsRepository.opensSinceLocalMidnight(usageZone)
+                app.usageStatsRepository.opensSinceLocalMidnight(zone)
             }
             usageMs = ms
             usageOpens = opens

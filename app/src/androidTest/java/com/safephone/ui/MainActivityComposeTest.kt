@@ -87,9 +87,10 @@ class MainActivityComposeTest {
     }
 
     @Test
-    fun navigate_schedules_shows_schedule_fields() {
-        composeRule.onNodeWithTag(SafePhoneTestTags.HOME_NAV_SCHEDULES).performClick()
-        composeRule.onNodeWithTag(SafePhoneTestTags.SCHEDULE_DAY_FIELD).assertIsDisplayed()
+    fun navigate_budgets_shows_search_field() {
+        composeRule.onNodeWithTag(SafePhoneTestTags.HOME_NAV_BUDGETS).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag(SafePhoneTestTags.BUDGET_SEARCH_FIELD).assertIsDisplayed()
     }
 
     @Test

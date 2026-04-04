@@ -27,24 +27,6 @@ interface FocusProfileDao {
 }
 
 @Dao
-interface ScheduleWindowDao {
-    @Query("SELECT * FROM schedule_windows WHERE profileId = :profileId")
-    fun observeForProfile(profileId: Long): Flow<List<ScheduleWindowEntity>>
-
-    @Query("SELECT * FROM schedule_windows WHERE profileId = :profileId")
-    suspend fun getForProfile(profileId: Long): List<ScheduleWindowEntity>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(window: ScheduleWindowEntity): Long
-
-    @Query("DELETE FROM schedule_windows WHERE id = :id")
-    suspend fun delete(id: Long)
-
-    @Query("DELETE FROM schedule_windows WHERE profileId = :profileId")
-    suspend fun deleteForProfile(profileId: Long)
-}
-
-@Dao
 interface BlockedAppDao {
     @Query("SELECT * FROM blocked_apps")
     fun observeAll(): Flow<List<BlockedAppEntity>>

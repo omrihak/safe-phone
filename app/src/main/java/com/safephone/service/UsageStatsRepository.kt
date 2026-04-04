@@ -15,10 +15,39 @@ class UsageStatsRepository(context: Context) : UsageStatsReader {
 
     override fun foregroundPackageBestEffort(): String? {
         val end = System.currentTimeMillis()
-        val begin = end - TimeUnit.MINUTES.toMillis(2)
-        val stats = usage.queryUsageStats(UsageStatsManager.INTERVAL_BEST, begin, end) ?: return null
-        if (stats.isEmpty()) return null
-        return stats.maxByOrNull { it.lastTimeUsed }?.packageName
+        // INTERVAL_BEST often returns no buckets for a 2-minute range, so foreground was always null
+        // and blocking never ran. Use a wide window, then fall back to recent usage events.
+        val statsBegin = end - TimeUnit.HOURS.toMillis(6)
+        val stats = usage.queryUsageStats(UsageStatsManager.INTERVAL_BEST, statsBegin, end)
+        if (!stats.isNullOrEmpty()) {
+            val pkg = stats.maxByOrNull { it.lastTimeUsed }?.packageName
+            if (pkg != null) return pkg
+        }
+        return lastForegroundPackageFromUsageEvents(end - TimeUnit.MINUTES.toMillis(15), end)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun lastForegroundPackageFromUsageEvents(begin: Long, end: Long): String? {
+        val events = usage.queryEvents(begin, end) ?: return null
+        val event = UsageEvents.Event()
+        var lastPkg: String? = null
+        var lastTs = 0L
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            val type = event.eventType
+            val isForegroundTransition = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                type == UsageEvents.Event.MOVE_TO_FOREGROUND
+            } else {
+                type == UsageEvents.Event.ACTIVITY_RESUMED
+            }
+            if (!isForegroundTransition) continue
+            val ts = event.timeStamp
+            if (ts >= lastTs) {
+                lastTs = ts
+                lastPkg = event.packageName
+            }
+        }
+        return lastPkg
     }
 
     override fun usageMsSinceLocalMidnight(zone: ZoneId): Map<String, Long> {

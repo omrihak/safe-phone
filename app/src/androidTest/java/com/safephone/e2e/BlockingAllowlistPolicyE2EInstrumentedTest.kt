@@ -8,7 +8,6 @@ import com.safephone.data.BlockedAppEntity
 import com.safephone.data.DomainRuleEntity
 import com.safephone.data.FocusPreferences
 import com.safephone.data.FocusProfileEntity
-import com.safephone.data.ScheduleWindowEntity
 import com.safephone.policy.PolicyEngine
 import com.safephone.service.PolicyAssembler
 import com.safephone.test.FakeCalendarKeywordChecker
@@ -20,9 +19,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.time.ZoneId
-import java.time.ZonedDateTime
-
 /**
  * End-to-end policy pipeline: real Room + DataStore prefs + [PolicyAssembler] + [PolicyEngine].
  * Simulates foreground app / browser host via fakes (no UsageStats or real Chrome required).
@@ -64,15 +60,6 @@ class BlockingAllowlistPolicyE2EInstrumentedTest {
             ),
         )
         prefs.setActiveProfileId(id)
-        val dow = ZonedDateTime.now(ZoneId.systemDefault()).dayOfWeek.value
-        db.scheduleWindowDao().upsert(
-            ScheduleWindowEntity(
-                profileId = id,
-                dayOfWeek = dow,
-                startMinuteOfDay = 0,
-                endMinuteOfDay = 24 * 60,
-            ),
-        )
         return id
     }
 
@@ -141,10 +128,11 @@ class BlockingAllowlistPolicyE2EInstrumentedTest {
     }
 
     @Test
-    fun e2e_when_not_enforcing_blocked_app_is_not_blocked() = runBlocking {
-        val id = db.focusProfileDao().insert(FocusProfileEntity(name = "Off", preset = "WORK_HOURS"))
+    fun e2e_soft_profile_does_not_block_listed_app() = runBlocking {
+        val id = db.focusProfileDao().insert(
+            FocusProfileEntity(name = "Soft", preset = "WORK_HOURS", softEnforcement = true),
+        )
         prefs.setActiveProfileId(id)
-        // No schedule windows → outside schedule
         db.blockedAppDao().upsert(BlockedAppEntity("com.bad.app"))
         usage.foregroundPackage = "com.bad.app"
         val d = evaluateFg("com.bad.app")
