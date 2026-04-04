@@ -2,7 +2,6 @@ package com.safephone.ui.overlay
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -16,16 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.safephone.BuildConfig
-import com.safephone.R
 import com.safephone.browser.BrowserNeutralTabLauncher
 import com.safephone.ui.theme.SafePhoneTheme
 
@@ -40,23 +35,29 @@ class BlockOverlayActivity : ComponentActivity() {
         return map
     }
 
-    /** Opens the configured landing URL immediately (blocked browser or default handler). */
-    private fun openLandingForCurrentBlock() {
-        val browserPkg = intent.getStringExtra(EXTRA_BROWSER_PACKAGE)
-        val query = landingQueryParams()
-        if (!browserPkg.isNullOrBlank()) {
-            BrowserNeutralTabLauncher.openNeutralTabThenClearSnapshot(applicationContext, browserPkg, query)
-            return
+    /** Web blocks only: load landing / neutral URL in the blocked browser, then return this overlay to the foreground. */
+    private fun replaceBlockedBrowserTabWithLanding() {
+        val browserPkg = intent.getStringExtra(EXTRA_BROWSER_PACKAGE)?.trim().orEmpty()
+        if (browserPkg.isEmpty()) return
+        BrowserNeutralTabLauncher.openNeutralTabThenClearSnapshot(
+            applicationContext,
+            browserPkg,
+            landingQueryParams(),
+        )
+        // Browser VIEW + NEW_TASK raises the browser task; reorder our singleInstance task back on top.
+        window.decorView.post {
+            if (isFinishing) return@post
+            val reopen = Intent(this, BlockOverlayActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                intent.extras?.let { putExtras(it) }
+            }
+            startActivity(reopen)
         }
-        val url = BuildConfig.BLOCK_LANDING_URL.trim()
-        if (url.isEmpty()) return
-        val uri = BrowserNeutralTabLauncher.focusLandingUri(query) ?: Uri.parse(url)
-        try {
-            startActivity(
-                Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-        } catch (_: Exception) {
-        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 
     private fun leaveToHome() {
@@ -90,10 +91,9 @@ class BlockOverlayActivity : ComponentActivity() {
         }
         current = this
         if (savedInstanceState == null) {
-            openLandingForCurrentBlock()
+            replaceBlockedBrowserTabWithLanding()
         }
         val reason = intent.getStringExtra(EXTRA_REASON) ?: ""
-        val landingUrl = BuildConfig.BLOCK_LANDING_URL.trim()
         setContent {
             BackHandler { leaveToHome() }
             SafePhoneTheme {
@@ -137,24 +137,6 @@ class BlockOverlayActivity : ComponentActivity() {
                         ) {
                             Text("Go to Home")
                         }
-                        if (landingUrl.isNotEmpty()) {
-                            OutlinedButton(
-                                onClick = {
-                                    val uri = BrowserNeutralTabLauncher.focusLandingUri(landingQueryParams())
-                                        ?: Uri.parse(landingUrl)
-                                    startActivity(
-                                        Intent(Intent.ACTION_VIEW, uri)
-                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                                    )
-                                },
-                                modifier = Modifier.padding(top = 12.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.White.copy(alpha = 0.92f),
-                                ),
-                            ) {
-                                Text(stringResource(R.string.block_overlay_open_focus_page))
-                            }
-                        }
                     }
                 }
             }
@@ -176,8 +158,9 @@ class BlockOverlayActivity : ComponentActivity() {
         private var current: BlockOverlayActivity? = null
 
         /**
-         * @param browserPackage When set (foreground was a browser), "Go to home" opens the focus landing
-         * URL (then about:newtab / about:blank) in that browser so reopening does not land on the blocked page.
+         * @param browserPackage When set (foreground was a browser), the overlay loads the focus landing
+         * (then about:newtab / about:blank) in that browser, then brings this activity back to the foreground
+         * so the user stays on the block screen. "Go to home" runs the same navigation again before HOME.
          * @param blockType Landing query `type`: `app`, `web`, or `browser_lock`.
          */
         fun show(

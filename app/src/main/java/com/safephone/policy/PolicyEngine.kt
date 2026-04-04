@@ -134,7 +134,8 @@ object PolicyEngine {
             }
         }
 
-        val grayscale = input.activeProfile.enforceGrayscale && hardEnforce
+        // Calm screen whenever rules are actively enforced (not on break); independent of profile flag.
+        val grayscale = hardEnforce
 
         return PolicyDecision(
             withinSchedule = withinSchedule,

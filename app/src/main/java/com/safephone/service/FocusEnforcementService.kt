@@ -73,17 +73,12 @@ class FocusEnforcementService : Service() {
             val prefs = app.prefs
             val assembler = app.policyAssembler
             val usageRepo = app.usageStatsRepository
-            val grayscale = app.grayscaleController
+            val blockStatsDao = app.database.blockStatsDao()
             var lastNonSelfForegroundPackage: String? = null
             var lastWebHostWhileBrowserForeground: String? = null
+            /** Debounce: one count per block "session" (same kind+target), not per poll tick. */
+            var lastBlockStatsSignature: String? = null
             while (isActive) {
-                val enabled = prefs.enforcementEnabled.first()
-                if (!enabled) {
-                    BlockOverlayActivity.dismiss(applicationContext)
-                    GrayscaleOverlayActivity.dismiss(applicationContext)
-                    delay(1000)
-                    continue
-                }
                 resetBreakDayIfNeeded(prefs)
                 val rawFg = usageRepo.foregroundPackageBestEffort()
                 if (rawFg != null && rawFg != BuildConfig.APPLICATION_ID) {
@@ -115,17 +110,9 @@ class FocusEnforcementService : Service() {
                 }
                 val input = assembler.build(fg, host)
                 val decision = PolicyEngine.evaluate(input)
-                val useSystemGray = prefs.useSystemGrayscale.first()
                 if (decision.applyGrayscale) {
-                    if (useSystemGray) {
-                        GrayscaleOverlayActivity.dismiss(applicationContext)
-                        grayscale.applySystemGrayscale(true)
-                    } else {
-                        grayscale.applySystemGrayscale(false)
-                        GrayscaleOverlayActivity.show(applicationContext)
-                    }
+                    GrayscaleOverlayActivity.show(applicationContext)
                 } else {
-                    grayscale.applySystemGrayscale(false)
                     GrayscaleOverlayActivity.dismiss(applicationContext)
                 }
                 if (decision.blockApp || decision.blockWebOverlay) {
@@ -142,6 +129,24 @@ class FocusEnforcementService : Service() {
                         if (decision.blockWebOverlay) host?.takeIf { it.isNotBlank() } else null
                     val landingPkg =
                         if (decision.blockApp) fg?.takeIf { it.isNotBlank() } else null
+                    val targetKey = when (blockType) {
+                        "browser_lock" -> (browserPkg ?: fg)?.takeIf { it.isNotBlank() }.orEmpty()
+                        "web" ->
+                            landingHost?.trim()?.takeIf { it.isNotBlank() }?.lowercase()
+                                ?: "unknown_host"
+                        "app" -> landingPkg ?: ""
+                        else -> ""
+                    }
+                    val signature =
+                        if (blockType.isNotBlank() && targetKey.isNotBlank()) "$blockType|$targetKey" else null
+                    if (signature != null && signature != lastBlockStatsSignature) {
+                        blockStatsDao.increment(
+                            LocalDate.now().toEpochDay(),
+                            blockType,
+                            targetKey,
+                        )
+                        lastBlockStatsSignature = signature
+                    }
                     BlockOverlayActivity.show(
                         applicationContext,
                         decision.reason,
@@ -151,6 +156,7 @@ class FocusEnforcementService : Service() {
                         landingPkg,
                     )
                 } else {
+                    lastBlockStatsSignature = null
                     BlockOverlayActivity.dismiss(applicationContext)
                 }
                 val aggressive = prefs.aggressivePoll.first()
@@ -178,7 +184,6 @@ class FocusEnforcementService : Service() {
         job.cancel()
         BlockOverlayActivity.dismiss(applicationContext)
         GrayscaleOverlayActivity.dismiss(applicationContext)
-        (application as? SafePhoneApp)?.grayscaleController?.applySystemGrayscale(false)
         super.onDestroy()
     }
 

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Android
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Coffee
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Button
@@ -68,6 +69,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -82,6 +84,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -90,20 +93,22 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.safephone.BuildConfig
 import com.safephone.SafePhoneApp
 import com.safephone.data.AppBudgetEntity
+import com.safephone.data.BlockStatsEntity
 import com.safephone.data.BlockedAppEntity
 import com.safephone.data.DomainRuleEntity
 import com.safephone.export.RulesExporter
 import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
 import com.safephone.ui.theme.SafePhoneTheme
+import com.safephone.widget.FocusWidgetReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 import java.time.ZoneId
 
 private data class HomeDestination(
@@ -206,6 +211,11 @@ class MainActivity : ComponentActivity() {
                     composable("export") {
                         FeatureScaffold(nav, "Export rules") { padding ->
                             ExportRoute(app, Modifier.padding(padding))
+                        }
+                    }
+                    composable("block_stats") {
+                        FeatureScaffold(nav, "Today's blocks") { padding ->
+                            BlockStatsRoute(app, Modifier.padding(padding))
                         }
                     }
                 }
@@ -319,29 +329,11 @@ private fun OnboardingRoute(nav: androidx.navigation.NavController, prefs: com.s
                     button = "Open alarm settings",
                 ) { context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) }
             }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Developer: system grayscale", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Optional ADB grant for global grayscale:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                    Text(
-                        "adb shell pm grant ${BuildConfig.APPLICATION_ID} android.permission.WRITE_SECURE_SETTINGS",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
-            }
             Button(
                 onClick = {
                     scope.launch {
                         prefs.setOnboardingCompleted(true)
+                        FocusEnforcementService.start(context.applicationContext)
                         // DataStore may resume this coroutine off the main thread; NavController requires main.
                         withContext(Dispatchers.Main) {
                             nav.navigate("home") { popUpTo("onboarding") { inclusive = true } }
@@ -364,15 +356,29 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
     val prefs = app.prefs
     val scope = rememberCoroutineScope()
     val breakPolicy by app.database.breakPolicyDao().observe().collectAsState(initial = null)
-    val enforcement by prefs.enforcementEnabled.collectAsState(initial = false)
     val breakEnd by prefs.breakEndEpochMs.collectAsState(initial = null)
-    val now = System.currentTimeMillis()
+    val breaksUsed by prefs.breaksUsedToday.collectAsState(initial = 0)
+    val breakDay by prefs.breakDayEpochDay.collectAsState(initial = 0L)
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        FocusEnforcementService.start(context.applicationContext)
+        while (isActive) {
+            delay(15_000)
+            now = System.currentTimeMillis()
+        }
+    }
     val onBreak = breakEnd != null && now < breakEnd!!
+    val today = LocalDate.now().toEpochDay()
+    val usedToday = if (breakDay != today) 0 else breaksUsed
+    val maxBreaks = breakPolicy?.maxBreaksPerDay ?: 5
+    val breaksLeft = (maxBreaks - usedToday).coerceAtLeast(0)
+    val canStartBreakNow = breaksLeft > 0 && !onBreak
     val destinations = remember {
         listOf(
             HomeDestination("blocked", "Blocked apps", "Always blocked when enforcing", Icons.Filled.Block),
             HomeDestination("domains", "Domain rules", "Block sites in the browser", Icons.Outlined.Language),
             HomeDestination("budgets", "Daily budgets", "Per-app time limits", Icons.Outlined.Timer),
+            HomeDestination("block_stats", "Today's blocks", "Times blocked today", Icons.Outlined.BarChart),
             HomeDestination("breaks", "Break policy", "How breaks work", Icons.Outlined.Coffee),
             HomeDestination("export", "Export rules", "Share JSON backup", Icons.Outlined.UploadFile),
         )
@@ -382,6 +388,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             "blocked" to SafePhoneTestTags.HOME_NAV_BLOCKED,
             "domains" to SafePhoneTestTags.HOME_NAV_DOMAINS,
             "budgets" to SafePhoneTestTags.HOME_NAV_BUDGETS,
+            "block_stats" to SafePhoneTestTags.HOME_NAV_BLOCK_STATS,
             "breaks" to SafePhoneTestTags.HOME_NAV_BREAKS,
             "export" to SafePhoneTestTags.HOME_NAV_EXPORT,
         )
@@ -424,8 +431,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                     colors = CardDefaults.cardColors(
                         containerColor = when {
                             onBreak -> MaterialTheme.colorScheme.secondaryContainer
-                            enforcement -> MaterialTheme.colorScheme.primaryContainer
-                            else -> MaterialTheme.colorScheme.surfaceContainerHigh
+                            else -> MaterialTheme.colorScheme.primaryContainer
                         },
                     ),
                 ) {
@@ -433,43 +439,30 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                         Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text(
-                                    when {
-                                        onBreak -> "On a break"
-                                        enforcement -> "Focus is on"
-                                        else -> "Focus is paused"
-                                    },
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    when {
-                                        onBreak -> "Rules relaxed until break ends."
-                                        enforcement -> "Block and budget rules are active."
-                                        else -> "Turn on when ready to focus."
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Switch(
-                                checked = enforcement,
-                                onCheckedChange = { v ->
-                                    scope.launch {
-                                        prefs.setEnforcementEnabled(v)
-                                        if (v) FocusEnforcementService.start(context.applicationContext)
-                                        else FocusEnforcementService.stop(context.applicationContext)
-                                    }
-                                },
-                                modifier = Modifier.testTag(SafePhoneTestTags.HOME_ENFORCEMENT_SWITCH),
-                            )
-                        }
+                        Text(
+                            if (onBreak) "On a break" else "Focus is on",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            if (onBreak) {
+                                "Rules relaxed until break ends."
+                            } else {
+                                "Block and budget rules stay active. Take a break only when you need a pause."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            pluralStringResource(
+                                com.safephone.R.plurals.home_breaks_balance,
+                                breaksLeft,
+                                breaksLeft,
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.testTag(SafePhoneTestTags.HOME_BREAKS_BALANCE),
+                        )
                         FilledTonalButton(
                             onClick = {
                                 scope.launch {
@@ -477,9 +470,11 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                                     val mgr = BreakManager(context.applicationContext, prefs)
                                     if (mgr.startBreak(policy.breakDurationMinutes, policy)) {
                                         FocusEnforcementService.start(context.applicationContext)
+                                        FocusWidgetReceiver.refreshAll(context.applicationContext)
                                     }
                                 }
                             },
+                            enabled = canStartBreakNow,
                             modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.HOME_START_BREAK),
                         ) { Text("Start break (${breakPolicy?.breakDurationMinutes ?: 10} min)") }
                     }
@@ -1197,6 +1192,7 @@ private fun BudgetRow(
 
 @Composable
 private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val db = app.database
     val policy by db.breakPolicyDao().observe().collectAsState(initial = null)
     val scope = rememberCoroutineScope()
@@ -1218,7 +1214,7 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(
-            "Control how often you can pause enforcement for a short break.",
+            "Control how many timed breaks you get per day to relax the rules.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1253,10 +1249,92 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
                             minGapBetweenBreaksMinutes = gap.toIntOrNull() ?: 30,
                         ),
                     )
+                    FocusWidgetReceiver.refreshAll(context.applicationContext)
                 }
             },
             modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.BREAKS_SAVE),
         ) { Text("Save policy") }
+    }
+}
+
+@Composable
+private fun BlockStatsRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val today = LocalDate.now().toEpochDay()
+    val rows by app.database.blockStatsDao().observeForDay(today).collectAsState(initial = emptyList())
+    fun targetLabel(row: BlockStatsEntity): String = when (row.kind) {
+        "web" -> row.targetKey
+        else -> runCatching {
+            val pm = context.packageManager
+            val info = pm.getApplicationInfo(row.targetKey, 0)
+            pm.getApplicationLabel(info).toString().trim().ifEmpty { row.targetKey }
+        }.getOrElse { row.targetKey }
+    }
+    fun kindLabel(kind: String): String = when (kind) {
+        "app" -> "App"
+        "web" -> "Website"
+        "browser_lock" -> "Browser (strict lock)"
+        else -> kind
+    }
+    LazyColumn(
+        modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Text(
+                "Each row counts how often you hit the block screen for that app or site today. " +
+                    "Leaving and returning counts again.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (rows.isEmpty()) {
+            item {
+                Text(
+                    "No blocks recorded yet today.",
+                    modifier = Modifier.testTag(SafePhoneTestTags.BLOCK_STATS_EMPTY),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            items(rows, key = { "${it.kind}:${it.targetKey}" }) { row ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                ) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                targetLabel(row),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                kindLabel(row.kind),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            "${row.count}×",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -46,8 +46,9 @@ class MainActivityComposeTest {
     }
 
     @Test
-    fun home_shows_enforcement_switch() {
-        composeRule.onNodeWithTag(SafePhoneTestTags.HOME_ENFORCEMENT_SWITCH).assertIsDisplayed()
+    fun home_shows_break_balance_and_start_break() {
+        composeRule.onNodeWithTag(SafePhoneTestTags.HOME_BREAKS_BALANCE).assertIsDisplayed()
+        composeRule.onNodeWithTag(SafePhoneTestTags.HOME_START_BREAK).assertIsDisplayed()
     }
 
     @Test

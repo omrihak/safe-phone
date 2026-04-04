@@ -16,14 +16,26 @@ class BreakManager(
 ) {
     private val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    suspend fun canStartBreak(policy: BreakPolicyEntity): Boolean {
+    suspend fun effectiveBreaksUsedToday(): Int {
         val day = LocalDate.now().toEpochDay()
         val storedDay = prefs.breakDayEpochDay.first()
         var used = prefs.breaksUsedToday.first()
-        if (storedDay != day) {
-            used = 0
-        }
-        return used < policy.maxBreaksPerDay
+        if (storedDay != day) used = 0
+        return used
+    }
+
+    suspend fun breaksRemainingToday(policy: BreakPolicyEntity): Int {
+        val used = effectiveBreaksUsedToday()
+        return (policy.maxBreaksPerDay - used).coerceAtLeast(0)
+    }
+
+    suspend fun isOnBreakNow(): Boolean {
+        val end = prefs.breakEndEpochMs.first() ?: return false
+        return System.currentTimeMillis() < end
+    }
+
+    suspend fun canStartBreak(policy: BreakPolicyEntity): Boolean {
+        return breaksRemainingToday(policy) > 0 && !isOnBreakNow()
     }
 
     suspend fun startBreak(durationMinutes: Int, policy: BreakPolicyEntity): Boolean {

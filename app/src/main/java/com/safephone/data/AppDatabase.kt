@@ -15,8 +15,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AppBudgetEntity::class,
         BreakPolicyEntity::class,
         CalendarKeywordEntity::class,
+        BlockStatsEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +27,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun appBudgetDao(): AppBudgetDao
     abstract fun breakPolicyDao(): BreakPolicyDao
     abstract fun calendarKeywordDao(): CalendarKeywordDao
+    abstract fun blockStatsDao(): BlockStatsDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -52,6 +54,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `block_stats` (
+                    `dayEpochDay` INTEGER NOT NULL,
+                    `kind` TEXT NOT NULL,
+                    `targetKey` TEXT NOT NULL,
+                    `count` INTEGER NOT NULL,
+                    PRIMARY KEY(`dayEpochDay`, `kind`, `targetKey`)
+                    )
+                    """.trimIndent(),
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -67,7 +85,13 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "safephone.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                ).addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                )
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

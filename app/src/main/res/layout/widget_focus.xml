@@ -5,14 +5,24 @@
     android:layout_height="match_parent"
     android:background="#1B5E20"
     android:gravity="center"
-    android:orientation="horizontal"
-    android:padding="8dp">
+    android:orientation="vertical"
+    android:padding="10dp">
 
     <TextView
-        android:id="@+id/widget_text"
+        android:id="@+id/widget_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/widget_toggle"
+        android:text="@string/widget_title_take_break"
         android:textColor="#FFFFFF"
-        android:textSize="14sp" />
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/widget_subtitle_placeholder"
+        android:textColor="#E8F5E9"
+        android:textSize="12sp" />
 </LinearLayout>

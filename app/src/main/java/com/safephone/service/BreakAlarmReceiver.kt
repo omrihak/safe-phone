@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.safephone.data.FocusPreferences
+import com.safephone.widget.FocusWidgetReceiver
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
@@ -22,5 +23,6 @@ class BreakAlarmReceiver : BroadcastReceiver() {
                 lastBreakEnd = System.currentTimeMillis(),
             )
         }
+        FocusWidgetReceiver.refreshAll(context)
     }
 }

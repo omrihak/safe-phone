@@ -1,5 +1,5 @@
 appId: com.safephone.focus
-name: Smoke — reach home and see enforcement switch
+name: Smoke — reach home and see break controls
 ---
 - launchApp:
     clearState: true
@@ -8,7 +8,7 @@ name: Smoke — reach home and see enforcement switch
     optional: true
 - extendedWaitUntil:
     visible:
-      id: "home_enforcement_switch"
+      id: "home_breaks_balance"
     timeout: 15000
 - assertVisible:
-    id: "home_enforcement_switch"
+    id: "home_breaks_balance"

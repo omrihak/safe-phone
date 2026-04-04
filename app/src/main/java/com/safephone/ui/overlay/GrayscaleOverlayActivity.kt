@@ -16,7 +16,7 @@ import androidx.compose.ui.graphics.Color
 import com.safephone.ui.theme.SafePhoneTheme
 
 /**
- * Fallback “calm screen” when system daltonizer is unavailable: dark neutral scrim (not true pixel desaturation of underlying UI).
+ * Calm-screen overlay: dark neutral scrim over the current app (not full pixel desaturation).
  */
 class GrayscaleOverlayActivity : ComponentActivity() {
 

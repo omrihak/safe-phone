@@ -13,6 +13,7 @@ data class FocusProfileEntity(
     val useTierB: Boolean = false,
     val useTierC: Boolean = false,
     val strictBrowserLock: Boolean = false,
+    /** Unused by [com.safephone.policy.PolicyEngine]; grayscale follows hard enforcement. Kept for schema compatibility. */
     val enforceGrayscale: Boolean = false,
     val softEnforcement: Boolean = false,
 )
@@ -50,4 +51,18 @@ data class BreakPolicyEntity(
 @Entity(tableName = "calendar_keywords")
 data class CalendarKeywordEntity(
     @PrimaryKey val keyword: String,
+)
+
+/** Aggregated block-overlay sessions per calendar day (see FocusEnforcementService debouncing). */
+@Entity(
+    tableName = "block_stats",
+    primaryKeys = ["dayEpochDay", "kind", "targetKey"],
+)
+data class BlockStatsEntity(
+    val dayEpochDay: Long,
+    /** `app`, `web`, or `browser_lock` */
+    val kind: String,
+    /** Package name, hostname, or browser package for strict lock */
+    val targetKey: String,
+    val count: Int,
 )

@@ -5,7 +5,6 @@ import com.safephone.data.AppDatabase
 import com.safephone.data.FocusPreferences
 import com.safephone.data.seedDatabaseIfEmpty
 import com.safephone.service.CalendarWatcher
-import com.safephone.service.GrayscaleController
 import com.safephone.service.PolicyAssembler
 import com.safephone.service.UsageStatsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -26,8 +25,6 @@ class SafePhoneApp : Application() {
         private set
     lateinit var policyAssembler: PolicyAssembler
         private set
-    lateinit var grayscaleController: GrayscaleController
-        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -36,7 +33,6 @@ class SafePhoneApp : Application() {
         usageStatsRepository = UsageStatsRepository(this)
         calendarWatcher = CalendarWatcher(this)
         policyAssembler = PolicyAssembler(database, prefs, usageStatsRepository, calendarWatcher)
-        grayscaleController = GrayscaleController(contentResolver)
         appScope.launch(Dispatchers.IO) {
             seedDatabaseIfEmpty(database)
         }

@@ -15,10 +15,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         scope.launch(Dispatchers.IO) {
-            val prefs = FocusPreferences(context.applicationContext)
-            if (prefs.enforcementEnabled.first()) {
-                FocusEnforcementService.start(context.applicationContext)
-            }
+            FocusEnforcementService.start(context.applicationContext)
         }
     }
 }

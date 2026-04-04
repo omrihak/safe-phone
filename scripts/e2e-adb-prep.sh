@@ -11,8 +11,7 @@ fi
 echo "Granting usage access (appops) for $PKG..."
 "${ADB[@]}" shell appops set "$PKG" GET_USAGE_STATS allow || true
 
-echo "Attempting overlay / secure settings grants (may fail on user builds)..."
+echo "Attempting overlay grant (may fail on user builds)..."
 "${ADB[@]}" shell pm grant "$PKG" android.permission.SYSTEM_ALERT_WINDOW 2>/dev/null || true
-"${ADB[@]}" shell pm grant "$PKG" android.permission.WRITE_SECURE_SETTINGS 2>/dev/null || true
 
 echo "Done. Enable Accessibility for SafePhone manually if testing overlays in a full user journey."

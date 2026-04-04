@@ -3,13 +3,15 @@ package com.safephone.ui
 /** Semantics test tags for UI / E2E tests. */
 object SafePhoneTestTags {
     const val ONBOARDING_FINISH = "onboarding_finish"
-    const val HOME_ENFORCEMENT_SWITCH = "home_enforcement_switch"
+    const val HOME_BREAKS_BALANCE = "home_breaks_balance"
     const val HOME_START_BREAK = "home_start_break"
     const val HOME_NAV_BLOCKED = "home_nav_blocked"
     const val HOME_NAV_DOMAINS = "home_nav_domains"
     const val HOME_NAV_BUDGETS = "home_nav_budgets"
     const val HOME_NAV_BREAKS = "home_nav_breaks"
     const val HOME_NAV_EXPORT = "home_nav_export"
+    const val HOME_NAV_BLOCK_STATS = "home_nav_block_stats"
+    const val BLOCK_STATS_EMPTY = "block_stats_empty"
     const val BLOCKED_SEARCH_FIELD = "blocked_search_field"
     /** LazyColumn item: manual package entry card (below installed-app list). */
     const val BLOCKED_MANUAL_SECTION = "blocked_manual_section"

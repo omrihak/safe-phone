@@ -6,9 +6,21 @@
     <string name="fg_notification_title">Focus protection on</string>
     <string name="fg_notification_text">Blocking according to your rules.</string>
     <string name="special_use_fgs">Personal focus and screen-time enforcement</string>
-    <string name="widget_description">Toggle focus enforcement</string>
-    <string name="widget_toggle">Focus</string>
-    <string name="widget_on">Focus: ON</string>
-    <string name="widget_off">Focus: OFF</string>
-    <string name="block_overlay_open_focus_page">Open focus page</string>
+    <string name="widget_description">Start a focus break and see how many breaks you have left</string>
+    <string name="widget_title_take_break">Take a break</string>
+    <string name="widget_subtitle_placeholder">—</string>
+    <string name="widget_subtitle_on_break">On a break now</string>
+    <string name="widget_subtitle_no_breaks">No breaks left today</string>
+    <string name="widget_toast_break_started">Break started</string>
+    <string name="widget_toast_no_breaks">No breaks left today</string>
+    <string name="widget_toast_already_on_break">Already on a break</string>
+    <plurals name="widget_breaks_left">
+        <item quantity="one">%d break left today</item>
+        <item quantity="other">%d breaks left today</item>
+    </plurals>
+    <plurals name="home_breaks_balance">
+        <item quantity="zero">Break balance: none left today</item>
+        <item quantity="one">Break balance: %d left today</item>
+        <item quantity="other">Break balance: %d left today</item>
+    </plurals>
 </resources>

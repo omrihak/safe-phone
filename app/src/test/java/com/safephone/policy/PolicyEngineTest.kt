@@ -109,6 +109,54 @@ class PolicyEngineTest {
     }
 
     @Test
+    fun on_break_no_grayscale() {
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val future = System.currentTimeMillis() + 60_000
+        val now = Instant.ofEpochMilli(System.currentTimeMillis())
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.android.chrome",
+            webHost = "example.com",
+            breakEnd = future,
+        )
+        val d = PolicyEngine.evaluate(input)
+        assertTrue(d.onBreak)
+        assertFalse(d.enforcing)
+        assertFalse(d.applyGrayscale)
+    }
+
+    @Test
+    fun grayscale_whole_focus_session_when_hard_enforcing_not_only_when_blocked() {
+        val now = Instant.now()
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.allowed.app",
+            blocked = emptySet(),
+            breakEnd = null,
+        )
+        val d = PolicyEngine.evaluate(input)
+        assertTrue(d.applyGrayscale)
+        assertTrue(d.enforcing)
+    }
+
+    @Test
+    fun soft_enforcement_no_grayscale() {
+        val now = Instant.now()
+        val profile = FocusProfileEntity(
+            id = 1,
+            name = "P",
+            preset = "WORK_HOURS",
+            softEnforcement = true,
+        )
+        val input = baseInput(now = now, profile = profile, fg = "com.any.app")
+        val d = PolicyEngine.evaluate(input)
+        assertFalse(d.applyGrayscale)
+    }
+
+    @Test
     fun no_active_profile_idle() {
         val input = baseInput(now = Instant.now(), profile = null)
         val d = PolicyEngine.evaluate(input)
@@ -206,12 +254,7 @@ class PolicyEngineTest {
     @Test
     fun self_foreground_never_blocks_or_grayscale() {
         val now = Instant.now()
-        val profile = FocusProfileEntity(
-            id = 1,
-            name = "P",
-            preset = "WORK_HOURS",
-            enforceGrayscale = true,
-        )
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
         val input = baseInput(
             now = now,
             profile = profile,
@@ -240,13 +283,13 @@ class PolicyEngineTest {
     }
 
     @Test
-    fun grayscale_when_profile_enforces_and_hard_enforce() {
+    fun grayscale_when_hard_enforcing_even_if_profile_flag_off() {
         val now = Instant.now()
         val profile = FocusProfileEntity(
             id = 1,
             name = "P",
             preset = "WORK_HOURS",
-            enforceGrayscale = true,
+            enforceGrayscale = false,
         )
         val input = baseInput(now, profile, fg = "com.android.chrome", webHost = "allowed.com")
         val d = PolicyEngine.evaluate(input)

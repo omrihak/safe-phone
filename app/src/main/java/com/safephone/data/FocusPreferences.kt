@@ -17,10 +17,10 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class FocusPreferences(private val context: Context) {
 
     val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map { it[KEY_ONBOARDING] ?: false }
-    val enforcementEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_ENFORCEMENT] ?: false }
+    /** Retained for migration/tests; enforcement is always active in the foreground service. */
+    val enforcementEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_ENFORCEMENT] ?: true }
     val activeProfileId: Flow<Long?> = context.dataStore.data.map { it[KEY_PROFILE_ID] }
     val aggressivePoll: Flow<Boolean> = context.dataStore.data.map { it[KEY_AGGRESSIVE_POLL] ?: true }
-    val useSystemGrayscale: Flow<Boolean> = context.dataStore.data.map { it[KEY_SYSTEM_GRAY] ?: false }
     val notificationHints: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIF_HINTS] ?: false }
     val calendarAware: Flow<Boolean> = context.dataStore.data.map { it[KEY_CALENDAR] ?: false }
     val mindfulFrictionPackages: Flow<Set<String>> = context.dataStore.data.map { prefs ->
@@ -48,10 +48,6 @@ class FocusPreferences(private val context: Context) {
 
     suspend fun setAggressivePoll(v: Boolean) {
         context.dataStore.edit { it[KEY_AGGRESSIVE_POLL] = v }
-    }
-
-    suspend fun setUseSystemGrayscale(v: Boolean) {
-        context.dataStore.edit { it[KEY_SYSTEM_GRAY] = v }
     }
 
     suspend fun setNotificationHints(v: Boolean) {
@@ -86,7 +82,6 @@ class FocusPreferences(private val context: Context) {
         private val KEY_ENFORCEMENT = booleanPreferencesKey("enforcement")
         private val KEY_PROFILE_ID = longPreferencesKey("profile_id")
         private val KEY_AGGRESSIVE_POLL = booleanPreferencesKey("aggressive_poll")
-        private val KEY_SYSTEM_GRAY = booleanPreferencesKey("system_gray")
         private val KEY_NOTIF_HINTS = booleanPreferencesKey("notif_hints")
         private val KEY_CALENDAR = booleanPreferencesKey("calendar_aware")
         private val KEY_MINDFUL = stringPreferencesKey("mindful_pkgs")

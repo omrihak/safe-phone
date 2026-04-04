@@ -48,6 +48,6 @@ class OnboardingFlowComposeTest {
         composeRule.onNodeWithTag(SafePhoneTestTags.ONBOARDING_FINISH).performScrollTo()
         composeRule.onNodeWithTag(SafePhoneTestTags.ONBOARDING_FINISH).performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag(SafePhoneTestTags.HOME_ENFORCEMENT_SWITCH).assertIsDisplayed()
+        composeRule.onNodeWithTag(SafePhoneTestTags.HOME_BREAKS_BALANCE).assertIsDisplayed()
     }
 }

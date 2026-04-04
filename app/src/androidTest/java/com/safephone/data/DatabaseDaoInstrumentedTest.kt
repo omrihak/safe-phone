@@ -2,6 +2,7 @@ package com.safephone.data
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -59,5 +60,21 @@ class DatabaseDaoInstrumentedTest {
     fun calendarKeyword_upsert() = runBlocking {
         db.calendarKeywordDao().upsert(CalendarKeywordEntity("focus"))
         assertEquals(listOf("focus"), db.calendarKeywordDao().getAll().map { it.keyword })
+    }
+
+    @Test
+    fun blockStats_increment_aggregates() = runBlocking {
+        val day = 19_000L
+        val dao = db.blockStatsDao()
+        dao.increment(day, "app", "com.game")
+        dao.increment(day, "app", "com.game")
+        dao.increment(day, "web", "news.example")
+        val rows = dao.observeForDay(day).first()
+        assertEquals(2, rows.size)
+        val game = rows.find { it.targetKey == "com.game" }!!
+        assertEquals(2, game.count)
+        assertEquals("app", game.kind)
+        val site = rows.find { it.targetKey == "news.example" }!!
+        assertEquals(1, site.count)
     }
 }

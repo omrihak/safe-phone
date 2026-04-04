@@ -97,3 +97,18 @@ interface CalendarKeywordDao {
     @Query("DELETE FROM calendar_keywords WHERE keyword = :keyword")
     suspend fun delete(keyword: String)
 }
+
+@Dao
+interface BlockStatsDao {
+    @Query(
+        """
+        INSERT INTO block_stats (dayEpochDay, kind, targetKey, count)
+        VALUES (:dayEpochDay, :kind, :targetKey, 1)
+        ON CONFLICT(dayEpochDay, kind, targetKey) DO UPDATE SET count = count + 1
+        """,
+    )
+    suspend fun increment(dayEpochDay: Long, kind: String, targetKey: String)
+
+    @Query("SELECT * FROM block_stats WHERE dayEpochDay = :day ORDER BY count DESC, kind ASC, targetKey ASC")
+    fun observeForDay(day: Long): Flow<List<BlockStatsEntity>>
+}
