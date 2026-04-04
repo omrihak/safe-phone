@@ -4,13 +4,21 @@ This folder is deployed to **Cloudflare Pages** via [`.github/workflows/deploy-l
 
 ## One-time setup
 
-1. You only need a Cloudflare account; the first GitHub Actions run creates the Pages project `safephone-focus-landing` when you deploy (no need to connect the repo inside Cloudflare unless you prefer their UI).
-2. Note your **Account ID** (Workers & Pages → any subdomain sidebar, or **My Profile** → **API Tokens** page).
-3. Create an **API Token** with **Account** → **Cloudflare Pages** → **Edit** (template “Edit Cloudflare Workers” also works if it includes Pages).
-4. In the GitHub repo → **Settings** → **Secrets and variables** → **Actions**, add:
-   - `CLOUDFLARE_API_TOKEN` — the token from step 3  
-   - `CLOUDFLARE_ACCOUNT_ID` — from step 2  
-5. If the project name `safephone-focus-landing` is taken or you want another name, change `--project-name=...` in the workflow and use the matching URL below.
+1. Note your **Account ID** (Workers & Pages sidebar, or **My Profile** → **API Tokens**).
+2. Create an **API Token** with **Account** → **Cloudflare Pages** → **Edit** (or a template that includes Pages).
+3. In the GitHub repo → **Settings** → **Secrets and variables** → **Actions**, add:
+   - `CLOUDFLARE_API_TOKEN` — the token from step 2  
+   - `CLOUDFLARE_ACCOUNT_ID` — from step 1  
+4. The workflow runs `wrangler pages project create` before the first deploy so the project **`safephone-focus-landing`** exists. If you prefer to create it yourself: **Workers & Pages** → **Create** → **Pages** → **Create application** (direct upload / empty project) and use the **exact** same name as in [`.github/workflows/deploy-landing.yml`](../.github/workflows/deploy-landing.yml).
+5. If that name is taken on your account, change `--project-name=...` in both workflow steps (`project create` and `deploy`) and use the matching `https://<name>.pages.dev/` URL below.
+
+### “Project not found” (code 8000007)
+
+The Pages project must exist before `pages deploy`. Re-run the workflow after pulling the latest workflow (it creates the project first), or create the project manually in the dashboard / once locally:
+
+```bash
+npx wrangler pages project create safephone-focus-landing --production-branch=main
+```
 
 ## Canonical URL
 
