@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "focus_prefs")
@@ -31,6 +32,16 @@ class FocusPreferences(private val context: Context) {
     val breaksUsedToday: Flow<Int> = context.dataStore.data.map { it[KEY_BREAKS_USED] ?: 0 }
     val breakDayEpochDay: Flow<Long> = context.dataStore.data.map { it[KEY_BREAK_DAY] ?: 0L }
     val lastBreakEndedEpochMs: Flow<Long> = context.dataStore.data.map { it[KEY_LAST_BREAK_END] ?: 0L }
+
+    /**
+     * When true (default), focus enforcement toggles system color correction (daltonizer) if
+     * [android.Manifest.permission.WRITE_SECURE_SETTINGS] is granted.
+     */
+    val systemMonochromeAutomationEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_SYSTEM_MONOCHROME_AUTO] ?: true }
+
+    suspend fun hasDaltonizerSnapshot(): Boolean =
+        context.dataStore.data.map { it[KEY_DALTONIZER_SNAP] == true }.first()
 
     suspend fun setOnboardingCompleted(v: Boolean) {
         context.dataStore.edit { it[KEY_ONBOARDING] = v }
@@ -77,6 +88,41 @@ class FocusPreferences(private val context: Context) {
         context.dataStore.edit { it.remove(KEY_BREAK_END) }
     }
 
+    suspend fun setSystemMonochromeAutomationEnabled(v: Boolean) {
+        context.dataStore.edit { it[KEY_SYSTEM_MONOCHROME_AUTO] = v }
+    }
+
+    suspend fun saveDaltonizerSnapshot(snapshot: DaltonizerSnapshot) {
+        context.dataStore.edit { p ->
+            p[KEY_DALTONIZER_SNAP] = true
+            p[KEY_DALTONIZER_PREV_ENABLED] = snapshot.enabled
+            p[KEY_DALTONIZER_PREV_MODE] = snapshot.mode
+        }
+    }
+
+    suspend fun takeDaltonizerSnapshotIfPresent(): DaltonizerSnapshot? {
+        val data = context.dataStore.data.first()
+        if (data[KEY_DALTONIZER_SNAP] != true) return null
+        val snap = DaltonizerSnapshot(
+            enabled = data[KEY_DALTONIZER_PREV_ENABLED] ?: 0,
+            mode = data[KEY_DALTONIZER_PREV_MODE] ?: DaltonizerSnapshot.MODE_DISABLED,
+        )
+        context.dataStore.edit { p ->
+            p.remove(KEY_DALTONIZER_SNAP)
+            p.remove(KEY_DALTONIZER_PREV_ENABLED)
+            p.remove(KEY_DALTONIZER_PREV_MODE)
+        }
+        return snap
+    }
+
+    suspend fun clearDaltonizerSnapshot() {
+        context.dataStore.edit { p ->
+            p.remove(KEY_DALTONIZER_SNAP)
+            p.remove(KEY_DALTONIZER_PREV_ENABLED)
+            p.remove(KEY_DALTONIZER_PREV_MODE)
+        }
+    }
+
     companion object {
         private val KEY_ONBOARDING = booleanPreferencesKey("onboarding_done")
         private val KEY_ENFORCEMENT = booleanPreferencesKey("enforcement")
@@ -89,5 +135,9 @@ class FocusPreferences(private val context: Context) {
         private val KEY_BREAKS_USED = intPreferencesKey("breaks_used")
         private val KEY_BREAK_DAY = longPreferencesKey("break_day")
         private val KEY_LAST_BREAK_END = longPreferencesKey("last_break_end_ms")
+        private val KEY_SYSTEM_MONOCHROME_AUTO = booleanPreferencesKey("system_monochrome_auto")
+        private val KEY_DALTONIZER_SNAP = booleanPreferencesKey("daltonizer_snapshot")
+        private val KEY_DALTONIZER_PREV_ENABLED = intPreferencesKey("daltonizer_prev_enabled")
+        private val KEY_DALTONIZER_PREV_MODE = intPreferencesKey("daltonizer_prev_mode")
     }
 }

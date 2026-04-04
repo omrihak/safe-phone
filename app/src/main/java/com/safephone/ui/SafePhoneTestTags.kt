@@ -11,6 +11,7 @@ object SafePhoneTestTags {
     const val HOME_NAV_BREAKS = "home_nav_breaks"
     const val HOME_NAV_EXPORT = "home_nav_export"
     const val HOME_NAV_BLOCK_STATS = "home_nav_block_stats"
+    const val HOME_NAV_SYSTEM_GRAYSCALE = "home_nav_system_grayscale"
     const val BLOCK_STATS_EMPTY = "block_stats_empty"
     const val BLOCKED_SEARCH_FIELD = "blocked_search_field"
     /** LazyColumn item: manual package entry card (below installed-app list). */

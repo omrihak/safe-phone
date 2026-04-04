@@ -23,4 +23,13 @@
         <item quantity="one">Break balance: %d left today</item>
         <item quantity="other">Break balance: %d left today</item>
     </plurals>
+    <string name="system_grayscale_title">Grayscale display</string>
+    <string name="system_grayscale_subtitle">System color correction during focus</string>
+    <string name="system_grayscale_body">While focus rules are enforcing, SafePhone turns on Android color correction (monochrome). On a break or soft mode, it restores your previous setting. This uses a protected permission; grant it once with USB debugging.</string>
+    <string name="system_grayscale_adb_label">ADB command (copy and run on a computer)</string>
+    <string name="system_grayscale_copy">Copy command</string>
+    <string name="system_grayscale_copied">Copied to clipboard</string>
+    <string name="system_grayscale_perm_granted">Secure settings: granted</string>
+    <string name="system_grayscale_perm_missing">Secure settings: not granted — paste the command after enabling USB debugging</string>
+    <string name="system_grayscale_toggle">Turn monochrome on automatically during focus</string>
 </resources>

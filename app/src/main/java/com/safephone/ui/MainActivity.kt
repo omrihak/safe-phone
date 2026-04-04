@@ -1,11 +1,16 @@
 package com.safephone.ui
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -41,6 +46,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Android
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.InvertColors
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Coffee
@@ -87,12 +93,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.safephone.BuildConfig
+import com.safephone.R
 import com.safephone.SafePhoneApp
 import com.safephone.data.AppBudgetEntity
 import com.safephone.data.BlockStatsEntity
@@ -216,6 +225,11 @@ class MainActivity : ComponentActivity() {
                     composable("block_stats") {
                         FeatureScaffold(nav, "Today's blocks") { padding ->
                             BlockStatsRoute(app, Modifier.padding(padding))
+                        }
+                    }
+                    composable("system_grayscale") {
+                        FeatureScaffold(nav, stringResource(R.string.system_grayscale_title)) { padding ->
+                            SystemGrayscaleRoute(app, Modifier.padding(padding))
                         }
                     }
                 }
@@ -381,6 +395,12 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             HomeDestination("block_stats", "Today's blocks", "Times blocked today", Icons.Outlined.BarChart),
             HomeDestination("breaks", "Break policy", "How breaks work", Icons.Outlined.Coffee),
             HomeDestination("export", "Export rules", "Share JSON backup", Icons.Outlined.UploadFile),
+            HomeDestination(
+                "system_grayscale",
+                "Grayscale display",
+                "System color correction during focus",
+                Icons.Outlined.InvertColors,
+            ),
         )
     }
     val testTagForRoute = remember {
@@ -391,6 +411,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             "block_stats" to SafePhoneTestTags.HOME_NAV_BLOCK_STATS,
             "breaks" to SafePhoneTestTags.HOME_NAV_BREAKS,
             "export" to SafePhoneTestTags.HOME_NAV_EXPORT,
+            "system_grayscale" to SafePhoneTestTags.HOME_NAV_SYSTEM_GRAYSCALE,
         )
     }
     Scaffold(
@@ -531,6 +552,80 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SystemGrayscaleRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val prefs = app.prefs
+    val scope = rememberCoroutineScope()
+    val automation by prefs.systemMonochromeAutomationEnabled.collectAsState(initial = true)
+    var secureGranted by remember {
+        mutableStateOf(
+            context.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) ==
+                PackageManager.PERMISSION_GRANTED,
+        )
+    }
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay(2_000)
+            secureGranted = context.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) ==
+                PackageManager.PERMISSION_GRANTED
+        }
+    }
+    val adbCommand = remember {
+        "adb shell pm grant ${BuildConfig.APPLICATION_ID} android.permission.WRITE_SECURE_SETTINGS"
+    }
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text(
+            stringResource(R.string.system_grayscale_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            if (secureGranted) {
+                stringResource(R.string.system_grayscale_perm_granted)
+            } else {
+                stringResource(R.string.system_grayscale_perm_missing)
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
+        RowSwitch(
+            label = stringResource(R.string.system_grayscale_toggle),
+            checked = automation,
+            onChecked = { v -> scope.launch { prefs.setSystemMonochromeAutomationEnabled(v) } },
+        )
+        Text(
+            stringResource(R.string.system_grayscale_adb_label),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        OutlinedTextField(
+            value = adbCommand,
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = false,
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+        FilledTonalButton(
+            onClick = {
+                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("adb", adbCommand))
+                Toast.makeText(context, R.string.system_grayscale_copied, Toast.LENGTH_SHORT).show()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.system_grayscale_copy))
         }
     }
 }

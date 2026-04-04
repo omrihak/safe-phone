@@ -18,7 +18,6 @@ import com.safephone.data.FocusPreferences
 import com.safephone.policy.PolicyEngine
 import com.safephone.ui.MainActivity
 import com.safephone.ui.overlay.BlockOverlayActivity
-import com.safephone.ui.overlay.GrayscaleOverlayActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 import com.safephone.SafePhoneApp
 
@@ -78,14 +78,14 @@ class FocusEnforcementService : Service() {
             var lastWebHostWhileBrowserForeground: String? = null
             /** Debounce: one count per block "session" (same kind+target), not per poll tick. */
             var lastBlockStatsSignature: String? = null
+            val mono = SystemMonochromeController(applicationContext, prefs)
             while (isActive) {
                 resetBreakDayIfNeeded(prefs)
                 val rawFg = usageRepo.foregroundPackageBestEffort()
                 if (rawFg != null && rawFg != BuildConfig.APPLICATION_ID) {
                     lastNonSelfForegroundPackage = rawFg
                 }
-                val enforcementOverlayUp =
-                    BlockOverlayActivity.isShowing() || GrayscaleOverlayActivity.isShowing()
+                val enforcementOverlayUp = BlockOverlayActivity.isShowing()
                 val fg = when {
                     rawFg != null && rawFg != BuildConfig.APPLICATION_ID -> rawFg
                     enforcementOverlayUp -> lastNonSelfForegroundPackage ?: rawFg
@@ -110,11 +110,7 @@ class FocusEnforcementService : Service() {
                 }
                 val input = assembler.build(fg, host)
                 val decision = PolicyEngine.evaluate(input)
-                if (decision.applyGrayscale) {
-                    GrayscaleOverlayActivity.show(applicationContext)
-                } else {
-                    GrayscaleOverlayActivity.dismiss(applicationContext)
-                }
+                mono.sync(decision.applyGrayscale)
                 if (decision.blockApp || decision.blockWebOverlay) {
                     val browserPkg =
                         if (fg != null && PolicyEngine.isBrowserPackage(fg)) fg else null
@@ -183,7 +179,10 @@ class FocusEnforcementService : Service() {
         loopJob?.cancel()
         job.cancel()
         BlockOverlayActivity.dismiss(applicationContext)
-        GrayscaleOverlayActivity.dismiss(applicationContext)
+        val app = application as SafePhoneApp
+        runBlocking {
+            SystemMonochromeController(applicationContext, app.prefs).restoreIfHeld()
+        }
         super.onDestroy()
     }
 

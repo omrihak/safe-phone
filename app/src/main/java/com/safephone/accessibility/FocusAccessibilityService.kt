@@ -13,7 +13,7 @@ class FocusAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
         val pkg = event.packageName?.toString() ?: return
-        // Block/grayscale overlays are our package; don't clear URL or we'd flicker off blocking.
+        // Block overlay is our package; don't clear URL or we'd flicker off blocking.
         if (pkg == BuildConfig.APPLICATION_ID) return
         if (!PolicyEngine.isBrowserPackage(pkg)) {
             lastBrowserHost = null

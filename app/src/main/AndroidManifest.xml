@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- Color correction automation: grant via `adb shell pm grant <package> android.permission.WRITE_SECURE_SETTINGS` -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
 
     <application
         android:name=".SafePhoneApp"
@@ -41,13 +43,6 @@
             android:launchMode="singleInstance"
             android:showOnLockScreen="true"
             android:theme="@style/Theme.SafePhone.Overlay" />
-
-        <activity
-            android:name=".ui.overlay.GrayscaleOverlayActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleInstance"
-            android:theme="@style/Theme.SafePhone.OverlayTransparent" />
 
         <service
             android:name=".service.FocusEnforcementService"
