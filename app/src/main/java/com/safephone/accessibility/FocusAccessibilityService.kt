@@ -56,14 +56,17 @@ class FocusAccessibilityService : AccessibilityService() {
         )
 
         fun extractHost(root: AccessibilityNodeInfo, packageName: String): String? {
-            val fromId = findUrlBarHost(root, packageName)
-            if (fromId != null) return fromId
+            val urlBar = lookupUrlBarHost(root, packageName)
+            if (urlBar.host != null) return urlBar.host
+            // Tab search / switcher UIs often show "Search tabs" (or similar) in the real URL bar while
+            // listing other tabs' URLs in the tree. Scanning the tree would treat a background tab as active.
+            if (urlBar.foundToolbarUrlField) return null
             return scanTextForHost(root, maxNodes = 400)
         }
 
-        private var nodeScanCount = 0
+        private data class UrlBarLookup(val host: String?, val foundToolbarUrlField: Boolean)
 
-        private fun findUrlBarHost(root: AccessibilityNodeInfo, packageName: String): String? {
+        private fun lookupUrlBarHost(root: AccessibilityNodeInfo, packageName: String): UrlBarLookup {
             val idHint = when {
                 packageName.contains("chrome") -> "url_bar"
                 packageName.contains("firefox") -> "mozac_browser_toolbar_url_view"
@@ -72,17 +75,20 @@ class FocusAccessibilityService : AccessibilityService() {
             }
             val nodes = mutableListOf<AccessibilityNodeInfo>()
             collectByViewId(root, idHint, nodes, limit = 8)
+            if (nodes.isEmpty()) return UrlBarLookup(null, false)
             for (n in nodes) {
                 try {
                     val t = n.text?.toString() ?: continue
                     val h = hostFromText(t)
-                    if (h != null) return h
+                    if (h != null) return UrlBarLookup(h, true)
                 } finally {
                     n.recycle()
                 }
             }
-            return null
+            return UrlBarLookup(null, true)
         }
+
+        private var nodeScanCount = 0
 
         private fun collectByViewId(node: AccessibilityNodeInfo, idSubstr: String, out: MutableList<AccessibilityNodeInfo>, limit: Int) {
             if (out.size >= limit) return

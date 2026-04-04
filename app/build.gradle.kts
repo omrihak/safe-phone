@@ -12,7 +12,7 @@ fun org.gradle.api.Project.blockLandingUrlForBuildType(debug: Boolean): String {
         if (debugOnly.isNotEmpty()) return debugOnly
     }
     return (findProperty("safephone.blockLandingUrl") as String?)?.trim().orEmpty()
-        .ifEmpty { "https://YOUR_USERNAME.github.io/safe-phone/" }
+        .ifEmpty { "https://safephone-focus-landing.pages.dev/" }
 }
 
 fun String.toBuildConfigStringLiteral(): String =

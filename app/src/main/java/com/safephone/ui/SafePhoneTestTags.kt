@@ -5,7 +5,6 @@ object SafePhoneTestTags {
     const val ONBOARDING_FINISH = "onboarding_finish"
     const val HOME_ENFORCEMENT_SWITCH = "home_enforcement_switch"
     const val HOME_START_BREAK = "home_start_break"
-    const val HOME_END_BREAK = "home_end_break"
     const val HOME_NAV_BLOCKED = "home_nav_blocked"
     const val HOME_NAV_DOMAINS = "home_nav_domains"
     const val HOME_NAV_SCHEDULES = "home_nav_schedules"

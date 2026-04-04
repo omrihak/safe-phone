@@ -525,14 +525,6 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                             },
                             modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.HOME_START_BREAK),
                         ) { Text("Start break (${breakPolicy?.breakDurationMinutes ?: 10} min)") }
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    BreakManager(context.applicationContext, prefs).endBreakEarly()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.HOME_END_BREAK),
-                        ) { Text("End break") }
                     }
                 }
             }
