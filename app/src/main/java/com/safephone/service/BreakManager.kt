@@ -9,15 +9,17 @@ import com.safephone.data.BreakPolicyEntity
 import com.safephone.data.FocusPreferences
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
+import java.time.ZoneId
 
 class BreakManager(
     private val context: Context,
     private val prefs: FocusPreferences,
 ) {
     private val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    private val deviceZone: ZoneId get() = ZoneId.systemDefault()
 
     suspend fun effectiveBreaksUsedToday(): Int {
-        val day = LocalDate.now().toEpochDay()
+        val day = LocalDate.now(deviceZone).toEpochDay()
         val storedDay = prefs.breakDayEpochDay.first()
         var used = prefs.breaksUsedToday.first()
         if (storedDay != day) used = 0
@@ -41,7 +43,7 @@ class BreakManager(
     suspend fun startBreak(durationMinutes: Int, policy: BreakPolicyEntity): Boolean {
         if (!canStartBreak(policy)) return false
         val now = System.currentTimeMillis()
-        val day = LocalDate.now().toEpochDay()
+        val day = LocalDate.now(deviceZone).toEpochDay()
         var used = prefs.breaksUsedToday.first()
         val storedDay = prefs.breakDayEpochDay.first()
         if (storedDay != day) used = 0
@@ -81,7 +83,7 @@ class BreakManager(
         prefs.setBreakState(
             endEpochMs = null,
             breaksUsed = used,
-            dayEpochDay = LocalDate.now().toEpochDay(),
+            dayEpochDay = LocalDate.now(deviceZone).toEpochDay(),
             lastBreakEnd = System.currentTimeMillis(),
         )
     }

@@ -100,11 +100,12 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.safephone.BreakTimeFormatter
 import com.safephone.BuildConfig
 import com.safephone.R
 import com.safephone.SafePhoneApp
 import com.safephone.data.AppBudgetEntity
-import com.safephone.data.BlockStatsEntity
+import com.safephone.data.BlockStatsAggregateRow
 import com.safephone.data.BlockedAppEntity
 import com.safephone.data.DomainRuleEntity
 import com.safephone.export.RulesExporter
@@ -114,6 +115,7 @@ import com.safephone.ui.theme.SafePhoneTheme
 import com.safephone.widget.FocusWidgetReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -223,7 +225,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     composable("block_stats") {
-                        FeatureScaffold(nav, "Today's blocks") { padding ->
+                        FeatureScaffold(nav, "Last 30 days") { padding ->
                             BlockStatsRoute(app, Modifier.padding(padding))
                         }
                     }
@@ -377,12 +379,14 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
     LaunchedEffect(Unit) {
         FocusEnforcementService.start(context.applicationContext)
         while (isActive) {
-            delay(15_000)
             now = System.currentTimeMillis()
+            val end = prefs.breakEndEpochMs.first()
+            val ticking = end != null && now < end
+            delay(if (ticking) 1_000L else 15_000L)
         }
     }
     val onBreak = breakEnd != null && now < breakEnd!!
-    val today = LocalDate.now().toEpochDay()
+    val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
     val usedToday = if (breakDay != today) 0 else breaksUsed
     val maxBreaks = breakPolicy?.maxBreaksPerDay ?: 5
     val breaksLeft = (maxBreaks - usedToday).coerceAtLeast(0)
@@ -392,7 +396,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             HomeDestination("blocked", "Blocked apps", "Always blocked when enforcing", Icons.Filled.Block),
             HomeDestination("domains", "Domain rules", "Block sites in the browser", Icons.Outlined.Language),
             HomeDestination("budgets", "Daily budgets", "Per-app time limits", Icons.Outlined.Timer),
-            HomeDestination("block_stats", "Today's blocks", "Times blocked today", Icons.Outlined.BarChart),
+            HomeDestination("block_stats", "Last 30 days", "Times blocked (30 days)", Icons.Outlined.BarChart),
             HomeDestination("breaks", "Break policy", "How breaks work", Icons.Outlined.Coffee),
             HomeDestination("export", "Export rules", "Share JSON backup", Icons.Outlined.UploadFile),
             HomeDestination(
@@ -467,7 +471,10 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                         )
                         Text(
                             if (onBreak) {
-                                "Rules relaxed until break ends."
+                                stringResource(
+                                    R.string.home_break_time_remaining,
+                                    BreakTimeFormatter.formatMmSs(breakEnd!! - now),
+                                )
                             } else {
                                 "Block and budget rules stay active. Take a break only when you need a pause."
                             },
@@ -1355,9 +1362,9 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
 @Composable
 private fun BlockStatsRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val today = LocalDate.now().toEpochDay()
-    val rows by app.database.blockStatsDao().observeForDay(today).collectAsState(initial = emptyList())
-    fun targetLabel(row: BlockStatsEntity): String = when (row.kind) {
+    val sinceEpochDay = LocalDate.now(ZoneId.systemDefault()).minusDays(29).toEpochDay()
+    val rows by app.database.blockStatsDao().observeAggregatedSince(sinceEpochDay).collectAsState(initial = emptyList())
+    fun targetLabel(row: BlockStatsAggregateRow): String = when (row.kind) {
         "web" -> row.targetKey
         else -> runCatching {
             val pm = context.packageManager
@@ -1378,7 +1385,7 @@ private fun BlockStatsRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
     ) {
         item {
             Text(
-                "Each row counts how often you hit the block screen for that app or site today. " +
+                "Each row sums how often you hit the block screen for that app or site in the last 30 days. " +
                     "Leaving and returning counts again.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1387,7 +1394,7 @@ private fun BlockStatsRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
         if (rows.isEmpty()) {
             item {
                 Text(
-                    "No blocks recorded yet today.",
+                    "No blocks recorded in the last 30 days.",
                     modifier = Modifier.testTag(SafePhoneTestTags.BLOCK_STATS_EMPTY),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

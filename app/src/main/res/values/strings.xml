@@ -5,11 +5,14 @@
     <string name="fg_channel_name">Focus enforcement</string>
     <string name="fg_notification_title">Focus protection on</string>
     <string name="fg_notification_text">Blocking according to your rules.</string>
+    <string name="fg_notification_title_on_break">On a break</string>
+    <string name="fg_notification_text_on_break">%1$s left — rules relaxed</string>
     <string name="special_use_fgs">Personal focus and screen-time enforcement</string>
     <string name="widget_description">Start a focus break and see how many breaks you have left</string>
     <string name="widget_title_take_break">Take a break</string>
+    <string name="widget_title_on_break">On a break</string>
     <string name="widget_subtitle_placeholder">—</string>
-    <string name="widget_subtitle_on_break">On a break now</string>
+    <string name="home_break_time_remaining">%1$s remaining</string>
     <string name="widget_subtitle_no_breaks">No breaks left today</string>
     <string name="widget_toast_break_started">Break started</string>
     <string name="widget_toast_no_breaks">No breaks left today</string>
@@ -32,4 +35,14 @@
     <string name="system_grayscale_perm_granted">Secure settings: granted</string>
     <string name="system_grayscale_perm_missing">Secure settings: not granted — paste the command after enabling USB debugging</string>
     <string name="system_grayscale_toggle">Turn monochrome on automatically during focus</string>
+    <string name="widget_grayscale_description">Toggle system grayscale (monochrome) display</string>
+    <string name="widget_grayscale_title">Grayscale</string>
+    <string name="widget_grayscale_subtitle_off">Tap to turn on</string>
+    <string name="widget_grayscale_subtitle_on">On — tap to turn off</string>
+    <string name="widget_grayscale_subtitle_need_permission">Grant secure settings in the app</string>
+    <string name="widget_grayscale_indicator_on">Monochrome active</string>
+    <string name="widget_grayscale_toast_no_permission">Secure settings not granted — open SafePhone → Grayscale display</string>
+    <string name="widget_grayscale_toast_on">Grayscale on</string>
+    <string name="widget_grayscale_toast_off">Grayscale off</string>
+    <string name="widget_grayscale_toast_error">Could not change display setting</string>
 </resources>

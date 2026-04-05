@@ -1,39 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
+    android:id="@+id/widget_grayscale_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1B5E20"
+    android:background="#37474F"
     android:gravity="center"
     android:orientation="vertical"
     android:padding="10dp">
 
     <TextView
-        android:id="@+id/widget_title"
+        android:id="@+id/widget_grayscale_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/widget_title_take_break"
+        android:text="@string/widget_grayscale_title"
         android:textColor="#FFFFFF"
         android:textSize="15sp"
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/widget_subtitle"
+        android:id="@+id/widget_grayscale_subtitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="@string/widget_subtitle_placeholder"
-        android:textColor="#E8F5E9"
+        android:text="@string/widget_grayscale_subtitle_off"
+        android:textColor="#CFD8DC"
         android:textSize="12sp" />
 
-    <Chronometer
-        android:id="@+id/widget_break_chronometer"
+    <TextView
+        android:id="@+id/widget_grayscale_indicator_on"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:format="%s"
-        android:textColor="#E8F5E9"
-        android:textSize="14sp"
-        android:textStyle="bold"
+        android:layout_marginTop="2dp"
+        android:text="@string/widget_grayscale_indicator_on"
+        android:textColor="#B0BEC5"
+        android:textSize="11sp"
         android:visibility="gone" />
 </LinearLayout>

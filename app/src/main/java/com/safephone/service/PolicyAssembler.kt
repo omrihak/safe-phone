@@ -7,6 +7,7 @@ import com.safephone.policy.PolicyInput
 import kotlinx.coroutines.flow.first
 import java.time.Instant
 import java.time.ZoneId
+import kotlin.math.max
 
 class PolicyAssembler(
     private val db: AppDatabase,
@@ -30,7 +31,12 @@ class PolicyAssembler(
         val budgetRows = db.appBudgetDao().getAll()
         val budgets = budgetRows.associate { it.packageName to it.maxMinutesPerDay }
         val budgetOpens = budgetRows.associate { it.packageName to it.maxOpensPerDay }
-        val usage = usageStats.usageMsSinceLocalMidnight(zone)
+        val usage = usageStats.usageMsSinceLocalMidnight(zone).toMutableMap()
+        if (foregroundPackage != null && foregroundPackage != BuildConfig.APPLICATION_ID) {
+            val fromEvents = usageStats.foregroundMsTodayForPackage(zone, foregroundPackage)
+            val fromStats = usage[foregroundPackage] ?: 0L
+            usage[foregroundPackage] = max(fromStats, fromEvents)
+        }
         val opens = usageStats.opensSinceLocalMidnight(zone)
         val breakEnd = prefs.breakEndEpochMs.first()
         val used = prefs.breaksUsedToday.first()

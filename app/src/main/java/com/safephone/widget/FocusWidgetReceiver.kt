@@ -6,6 +6,8 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
+import android.view.View
 import android.widget.RemoteViews
 import android.widget.Toast
 import com.safephone.R
@@ -14,6 +16,7 @@ import com.safephone.data.BreakPolicyEntity
 import com.safephone.data.FocusPreferences
 import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 class FocusWidgetReceiver : AppWidgetProvider() {
@@ -49,6 +52,13 @@ class FocusWidgetReceiver : AppWidgetProvider() {
     companion object {
         const val ACTION_START_BREAK = "com.safephone.WIDGET_START_BREAK"
 
+        private data class WidgetUpdate(
+            val title: String,
+            val subtitle: String,
+            val onBreak: Boolean,
+            val chronoBaseElapsed: Long,
+        )
+
         fun refreshAll(context: Context) {
             val appCtx = context.applicationContext
             val mgr = AppWidgetManager.getInstance(appCtx)
@@ -60,23 +70,43 @@ class FocusWidgetReceiver : AppWidgetProvider() {
 
         fun updateWidgets(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
             val appCtx = context.applicationContext
-            val (title, subtitle) = runBlocking {
+            val (title, subtitle, onBreak, chronoBaseElapsed) = runBlocking {
                 val prefs = FocusPreferences(appCtx)
                 val policy = AppDatabase.getInstance(appCtx).breakPolicyDao().get() ?: BreakPolicyEntity()
                 val mgr = BreakManager(appCtx, prefs)
-                val onBreak = mgr.isOnBreakNow()
+                val onBreakNow = mgr.isOnBreakNow()
+                val breakEndWall = prefs.breakEndEpochMs.first()
+                val nowWall = System.currentTimeMillis()
                 val remaining = mgr.breaksRemainingToday(policy)
-                val titleStr = appCtx.getString(R.string.widget_title_take_break)
+                val titleStr =
+                    if (onBreakNow) appCtx.getString(R.string.widget_title_on_break)
+                    else appCtx.getString(R.string.widget_title_take_break)
                 val subtitleStr = when {
-                    onBreak -> appCtx.getString(R.string.widget_subtitle_on_break)
+                    onBreakNow -> ""
                     remaining <= 0 -> appCtx.getString(R.string.widget_subtitle_no_breaks)
                     else -> appCtx.resources.getQuantityString(R.plurals.widget_breaks_left, remaining, remaining)
                 }
-                titleStr to subtitleStr
+                val chronoBase =
+                    if (onBreakNow && breakEndWall != null && nowWall < breakEndWall) {
+                        SystemClock.elapsedRealtime() + (breakEndWall - nowWall)
+                    } else {
+                        0L
+                    }
+                WidgetUpdate(titleStr, subtitleStr, onBreakNow, chronoBase)
             }
             val views = RemoteViews(appCtx.packageName, R.layout.widget_focus).apply {
                 setTextViewText(R.id.widget_title, title)
-                setTextViewText(R.id.widget_subtitle, subtitle)
+                if (onBreak) {
+                    setViewVisibility(R.id.widget_subtitle, View.GONE)
+                    setViewVisibility(R.id.widget_break_chronometer, View.VISIBLE)
+                    setChronometerCountDown(R.id.widget_break_chronometer, true)
+                    setChronometer(R.id.widget_break_chronometer, chronoBaseElapsed, null, true)
+                } else {
+                    setViewVisibility(R.id.widget_subtitle, View.VISIBLE)
+                    setViewVisibility(R.id.widget_break_chronometer, View.GONE)
+                    setChronometer(R.id.widget_break_chronometer, 0, null, false)
+                    setTextViewText(R.id.widget_subtitle, subtitle)
+                }
                 val pi = PendingIntent.getBroadcast(
                     appCtx,
                     0,

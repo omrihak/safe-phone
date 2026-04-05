@@ -40,6 +40,52 @@ class SystemMonochromeController(
         Settings.Secure.putInt(cr, SECURE_DALTONIZER, DaltonizerSnapshot.MODE_MONOCHROMACY)
     }
 
+    private fun disableDaltonizerToDefaults() {
+        Settings.Secure.putInt(cr, SECURE_DALTONIZER_ENABLED, 0)
+        Settings.Secure.putInt(cr, SECURE_DALTONIZER, DaltonizerSnapshot.MODE_DISABLED)
+    }
+
+    fun isMonochromeActive(): Boolean {
+        val s = readCurrent()
+        return s.enabled == 1 && s.mode == DaltonizerSnapshot.MODE_MONOCHROMACY
+    }
+
+    /**
+     * Immediate toggle for widgets / shortcuts. Does not change [FocusPreferences.systemMonochromeAutomationEnabled].
+     * Focus enforcement may override on the next tick if policy requests grayscale.
+     */
+    suspend fun toggleManualGrayscale(): GrayscaleManualToggleResult {
+        if (!canApply()) return GrayscaleManualToggleResult.NoPermission
+        return try {
+            if (isMonochromeActive()) {
+                turnOffMonochrome()
+                GrayscaleManualToggleResult.TurnedOff
+            } else {
+                turnOnMonochrome()
+                GrayscaleManualToggleResult.TurnedOn
+            }
+        } catch (_: SecurityException) {
+            prefs.clearDaltonizerSnapshot()
+            GrayscaleManualToggleResult.Error
+        }
+    }
+
+    private suspend fun turnOnMonochrome() {
+        if (!prefs.hasDaltonizerSnapshot()) {
+            prefs.saveDaltonizerSnapshot(readCurrent())
+        }
+        enableMonochrome()
+    }
+
+    private suspend fun turnOffMonochrome() {
+        val snap = prefs.takeDaltonizerSnapshotIfPresent()
+        if (snap != null) {
+            writeSnapshot(snap)
+        } else {
+            disableDaltonizerToDefaults()
+        }
+    }
+
     /**
      * Keeps system display in sync with focus policy. Call from the enforcement loop each tick.
      */
@@ -88,4 +134,11 @@ class SystemMonochromeController(
         private const val SECURE_DALTONIZER_ENABLED = "accessibility_display_daltonizer_enabled"
         private const val SECURE_DALTONIZER = "accessibility_display_daltonizer"
     }
+}
+
+enum class GrayscaleManualToggleResult {
+    NoPermission,
+    TurnedOn,
+    TurnedOff,
+    Error,
 }

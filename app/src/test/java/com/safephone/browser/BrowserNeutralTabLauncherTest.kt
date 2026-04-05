@@ -21,6 +21,18 @@ class BrowserNeutralTabLauncherTest {
     }
 
     @Test
+    fun ordered_specs_local_neutral_first_then_landing() {
+        val list = BrowserNeutralTabLauncher.orderedBlockExitUriSpecs(
+            "https://example.com/focus/",
+            order = BrowserNeutralTabLauncher.BlockExitUriOrder.LocalNeutralFirst,
+        )
+        assertEquals(
+            listOf("about:newtab", "about:blank", "https://example.com/focus/"),
+            list,
+        )
+    }
+
+    @Test
     fun ordered_specs_trim_landing() {
         val list = BrowserNeutralTabLauncher.orderedBlockExitUriSpecs("  https://x.test  ")
         assertEquals(
@@ -57,5 +69,20 @@ class BrowserNeutralTabLauncherTest {
         assertEquals("news.example", u.getQueryParameter("host"))
         assertEquals("about:newtab", list[1])
         assertEquals("about:blank", list[2])
+    }
+
+    @Test
+    fun local_neutral_first_still_appends_query_on_trailing_landing() {
+        val q = mapOf("reason" to "Blocked domain", "type" to "web")
+        val list = BrowserNeutralTabLauncher.orderedBlockExitUriSpecs(
+            "https://example.com/focus/",
+            q,
+            BrowserNeutralTabLauncher.BlockExitUriOrder.LocalNeutralFirst,
+        )
+        assertEquals("about:newtab", list[0])
+        assertEquals("about:blank", list[1])
+        val u = Uri.parse(list[2])
+        assertEquals("Blocked domain", u.getQueryParameter("reason"))
+        assertEquals("web", u.getQueryParameter("type"))
     }
 }

@@ -111,4 +111,15 @@ interface BlockStatsDao {
 
     @Query("SELECT * FROM block_stats WHERE dayEpochDay = :day ORDER BY count DESC, kind ASC, targetKey ASC")
     fun observeForDay(day: Long): Flow<List<BlockStatsEntity>>
+
+    @Query(
+        """
+        SELECT kind, targetKey, SUM(count) AS count
+        FROM block_stats
+        WHERE dayEpochDay >= :sinceEpochDayInclusive
+        GROUP BY kind, targetKey
+        ORDER BY count DESC, kind ASC, targetKey ASC
+        """,
+    )
+    fun observeAggregatedSince(sinceEpochDayInclusive: Long): Flow<List<BlockStatsAggregateRow>>
 }

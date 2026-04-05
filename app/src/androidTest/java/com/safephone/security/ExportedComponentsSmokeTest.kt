@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.safephone.service.BootReceiver
 import com.safephone.widget.FocusWidgetReceiver
+import com.safephone.widget.GrayscaleWidgetReceiver
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -22,5 +23,11 @@ class ExportedComponentsSmokeTest {
     fun focusWidgetReceiver_unknownAction_delegatesSafely() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         FocusWidgetReceiver().onReceive(app, Intent(Intent.ACTION_VIEW))
+    }
+
+    @Test
+    fun grayscaleWidgetReceiver_unknownAction_delegatesSafely() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        GrayscaleWidgetReceiver().onReceive(app, Intent(Intent.ACTION_VIEW))
     }
 }

@@ -77,4 +77,17 @@ class DatabaseDaoInstrumentedTest {
         val site = rows.find { it.targetKey == "news.example" }!!
         assertEquals(1, site.count)
     }
+
+    @Test
+    fun blockStats_observeAggregatedSince_sumsAcrossDays() = runBlocking {
+        val dao = db.blockStatsDao()
+        val dayA = 19_010L
+        val dayB = 19_011L
+        dao.increment(dayA, "app", "com.game")
+        dao.increment(dayB, "app", "com.game")
+        dao.increment(dayB, "app", "com.game")
+        val rows = dao.observeAggregatedSince(dayA).first()
+        val game = rows.single { it.targetKey == "com.game" }
+        assertEquals(3, game.count)
+    }
 }

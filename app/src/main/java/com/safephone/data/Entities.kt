@@ -66,3 +66,10 @@ data class BlockStatsEntity(
     val targetKey: String,
     val count: Int,
 )
+
+/** Sum of [BlockStatsEntity.count] over a date range, grouped by kind and target (see [BlockStatsDao.observeAggregatedSince]). */
+data class BlockStatsAggregateRow(
+    val kind: String,
+    val targetKey: String,
+    val count: Int,
+)

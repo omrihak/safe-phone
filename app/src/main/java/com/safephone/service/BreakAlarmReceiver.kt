@@ -8,6 +8,7 @@ import com.safephone.widget.FocusWidgetReceiver
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
+import java.time.ZoneId
 
 class BreakAlarmReceiver : BroadcastReceiver() {
 
@@ -19,7 +20,7 @@ class BreakAlarmReceiver : BroadcastReceiver() {
             prefs.setBreakState(
                 endEpochMs = null,
                 breaksUsed = prefs.breaksUsedToday.first(),
-                dayEpochDay = LocalDate.now().toEpochDay(),
+                dayEpochDay = LocalDate.now(ZoneId.systemDefault()).toEpochDay(),
                 lastBreakEnd = System.currentTimeMillis(),
             )
         }

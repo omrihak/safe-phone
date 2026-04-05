@@ -59,6 +59,59 @@ class SystemMonochromeControllerTest {
         assertEquals(DaltonizerSnapshot.MODE_DISABLED, Settings.Secure.getInt(cr, SECURE_DALTONIZER, -99))
     }
 
+    @Test
+    fun toggleManual_with_permission_turnsOnThenOff_andRestoresPrior() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        Shadows.shadowOf(app).grantPermissions(Manifest.permission.WRITE_SECURE_SETTINGS)
+        val prefs = FocusPreferences(app)
+        prefs.clearDaltonizerSnapshot()
+
+        val cr = app.contentResolver
+        Settings.Secure.putInt(cr, SECURE_DALTONIZER_ENABLED, 0)
+        Settings.Secure.putInt(cr, SECURE_DALTONIZER, 12)
+
+        val controller = SystemMonochromeController(app, prefs)
+        assertEquals(GrayscaleManualToggleResult.TurnedOn, controller.toggleManualGrayscale())
+        assertTrue(controller.isMonochromeActive())
+
+        assertEquals(GrayscaleManualToggleResult.TurnedOff, controller.toggleManualGrayscale())
+        assertFalse(controller.isMonochromeActive())
+        assertEquals(0, Settings.Secure.getInt(cr, SECURE_DALTONIZER_ENABLED, -99))
+        assertEquals(12, Settings.Secure.getInt(cr, SECURE_DALTONIZER, -99))
+        assertFalse(prefs.hasDaltonizerSnapshot())
+    }
+
+    @Test
+    fun toggleManual_without_permission_returnsNoPermission() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val prefs = FocusPreferences(app)
+        prefs.clearDaltonizerSnapshot()
+        val cr = app.contentResolver
+        Settings.Secure.putInt(cr, SECURE_DALTONIZER_ENABLED, 0)
+        Settings.Secure.putInt(cr, SECURE_DALTONIZER, DaltonizerSnapshot.MODE_DISABLED)
+
+        val controller = SystemMonochromeController(app, prefs)
+        assertEquals(GrayscaleManualToggleResult.NoPermission, controller.toggleManualGrayscale())
+        assertEquals(0, Settings.Secure.getInt(cr, SECURE_DALTONIZER_ENABLED, -99))
+    }
+
+    @Test
+    fun toggleManual_turnOff_withoutSnapshot_disablesDaltonizer() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        Shadows.shadowOf(app).grantPermissions(Manifest.permission.WRITE_SECURE_SETTINGS)
+        val prefs = FocusPreferences(app)
+        prefs.clearDaltonizerSnapshot()
+        val cr = app.contentResolver
+        Settings.Secure.putInt(cr, SECURE_DALTONIZER_ENABLED, 1)
+        Settings.Secure.putInt(cr, SECURE_DALTONIZER, DaltonizerSnapshot.MODE_MONOCHROMACY)
+
+        val controller = SystemMonochromeController(app, prefs)
+        assertEquals(GrayscaleManualToggleResult.TurnedOff, controller.toggleManualGrayscale())
+        assertFalse(controller.isMonochromeActive())
+        assertEquals(0, Settings.Secure.getInt(cr, SECURE_DALTONIZER_ENABLED, -99))
+        assertEquals(DaltonizerSnapshot.MODE_DISABLED, Settings.Secure.getInt(cr, SECURE_DALTONIZER, -99))
+    }
+
     private companion object {
         private const val SECURE_DALTONIZER_ENABLED = "accessibility_display_daltonizer_enabled"
         private const val SECURE_DALTONIZER = "accessibility_display_daltonizer"

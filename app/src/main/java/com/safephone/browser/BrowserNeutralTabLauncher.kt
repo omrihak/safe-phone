@@ -12,6 +12,16 @@ import com.safephone.accessibility.FocusAccessibilityService
  */
 object BrowserNeutralTabLauncher {
 
+    /**
+     * Which neutral targets to try first when replacing the blocked browser tab.
+     * [LandingFirst] keeps the hosted page for explicit “go home” flows.
+     * [LocalNeutralFirst] avoids leaving Chrome on the marketing landing if focus ordering races.
+     */
+    enum class BlockExitUriOrder {
+        LandingFirst,
+        LocalNeutralFirst,
+    }
+
     /** Query keys: `reason`, `type` (app | web | browser_lock), optional `host`, `pkg`. */
     internal fun landingUriWithQuery(landingUrl: String, query: Map<String, String>): String? {
         val trimmed = landingUrl.trim()
@@ -21,18 +31,34 @@ object BrowserNeutralTabLauncher {
         return builder.build().toString()
     }
 
-    internal fun orderedBlockExitUriSpecs(landingUrl: String, query: Map<String, String> = emptyMap()): List<String> =
-        buildList {
-            landingUriWithQuery(landingUrl, query)?.let { add(it) }
-            add("about:newtab")
-            add("about:blank")
+    internal fun orderedBlockExitUriSpecs(
+        landingUrl: String,
+        query: Map<String, String> = emptyMap(),
+        order: BlockExitUriOrder = BlockExitUriOrder.LandingFirst,
+    ): List<String> {
+        val landing = landingUriWithQuery(landingUrl, query)
+        return buildList {
+            when (order) {
+                BlockExitUriOrder.LandingFirst -> {
+                    landing?.let { add(it) }
+                    add("about:newtab")
+                    add("about:blank")
+                }
+                BlockExitUriOrder.LocalNeutralFirst -> {
+                    add("about:newtab")
+                    add("about:blank")
+                    landing?.let { add(it) }
+                }
+            }
         }
+    }
 
     fun uriCandidates(
         @Suppress("UNUSED_PARAMETER") context: Context,
         @Suppress("UNUSED_PARAMETER") browserPackage: String,
         landingQuery: Map<String, String> = emptyMap(),
-    ): List<String> = orderedBlockExitUriSpecs(BuildConfig.BLOCK_LANDING_URL, landingQuery)
+        order: BlockExitUriOrder = BlockExitUriOrder.LandingFirst,
+    ): List<String> = orderedBlockExitUriSpecs(BuildConfig.BLOCK_LANDING_URL, landingQuery, order)
 
     /** Full HTTPS landing URI with optional block context (for in-app browser or sharing). */
     fun focusLandingUri(landingQuery: Map<String, String> = emptyMap()): Uri? {
@@ -48,10 +74,11 @@ object BrowserNeutralTabLauncher {
         context: Context,
         browserPackage: String,
         landingQuery: Map<String, String> = emptyMap(),
+        uriOrder: BlockExitUriOrder = BlockExitUriOrder.LandingFirst,
     ) {
         FocusAccessibilityService.beginBrowserNavigationReset(pendingMs = 0L)
         val pm = context.packageManager
-        for (spec in uriCandidates(context, browserPackage, landingQuery)) {
+        for (spec in uriCandidates(context, browserPackage, landingQuery, uriOrder)) {
             val uri = Uri.parse(spec)
             val intent = Intent(Intent.ACTION_VIEW, uri).apply {
                 setPackage(browserPackage)

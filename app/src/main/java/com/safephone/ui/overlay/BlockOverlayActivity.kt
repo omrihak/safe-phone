@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -35,24 +37,35 @@ class BlockOverlayActivity : ComponentActivity() {
         return map
     }
 
-    /** Web blocks only: load landing / neutral URL in the blocked browser, then return this overlay to the foreground. */
+    /** Web blocks only: load a neutral URL in the blocked browser, then return this overlay to the foreground. */
     private fun replaceBlockedBrowserTabWithLanding() {
         val browserPkg = intent.getStringExtra(EXTRA_BROWSER_PACKAGE)?.trim().orEmpty()
         if (browserPkg.isEmpty()) return
+        // Prefer about:* first so if Chrome wins the focus race the user does not stay on the hosted landing page.
         BrowserNeutralTabLauncher.openNeutralTabThenClearSnapshot(
             applicationContext,
             browserPkg,
             landingQueryParams(),
+            BrowserNeutralTabLauncher.BlockExitUriOrder.LocalNeutralFirst,
         )
-        // Browser VIEW + NEW_TASK raises the browser task; reorder our singleInstance task back on top.
-        window.decorView.post {
-            if (isFinishing) return@post
-            val reopen = Intent(this, BlockOverlayActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                intent.extras?.let { putExtras(it) }
-            }
-            startActivity(reopen)
+        // ACTION_VIEW in Chrome often resumes after a single post; stagger REORDER_TO_FRONT so the app block UI wins.
+        scheduleBringOverlayToFront()
+    }
+
+    private fun scheduleBringOverlayToFront() {
+        val handler = Handler(Looper.getMainLooper())
+        fun reopen() {
+            if (isFinishing) return
+            startActivity(
+                Intent(this, BlockOverlayActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                    intent.extras?.let { putExtras(it) }
+                },
+            )
         }
+        window.decorView.post { reopen() }
+        handler.postDelayed({ reopen() }, 60L)
+        handler.postDelayed({ reopen() }, 220L)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -158,9 +171,9 @@ class BlockOverlayActivity : ComponentActivity() {
         private var current: BlockOverlayActivity? = null
 
         /**
-         * @param browserPackage When set (foreground was a browser), the overlay loads the focus landing
-         * (then about:newtab / about:blank) in that browser, then brings this activity back to the foreground
-         * so the user stays on the block screen. "Go to home" runs the same navigation again before HOME.
+         * @param browserPackage When set (foreground was a browser), the overlay replaces the tab with
+         * about:newtab / about:blank first (then hosted landing as fallback), then brings this activity back
+         * to the foreground so the user stays on the block screen. "Go to home" uses landing-first order before HOME.
          * @param blockType Landing query `type`: `app`, `web`, or `browser_lock`.
          */
         fun show(

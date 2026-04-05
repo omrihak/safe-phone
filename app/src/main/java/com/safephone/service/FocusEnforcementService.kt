@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.safephone.BreakTimeFormatter
 import com.safephone.BuildConfig
 import com.safephone.R
 import com.safephone.accessibility.FocusAccessibilityService
@@ -29,6 +30,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
+import java.time.ZoneId
 import com.safephone.SafePhoneApp
 
 class FocusEnforcementService : Service() {
@@ -45,19 +47,9 @@ class FocusEnforcementService : Service() {
             return START_NOT_STICKY
         }
         createChannel()
-        val pending = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.fg_notification_title))
-            .setContentText(getString(R.string.fg_notification_text))
-            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
-            .setContentIntent(pending)
-            .setOngoing(true)
-            .build()
+        val prefsInit = (application as SafePhoneApp).prefs
+        val breakEndInit = runBlocking { prefsInit.breakEndEpochMs.first() }
+        val notification = buildForegroundNotification(breakEndInit, System.currentTimeMillis())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIF_ID,
@@ -78,6 +70,7 @@ class FocusEnforcementService : Service() {
             var lastWebHostWhileBrowserForeground: String? = null
             /** Debounce: one count per block "session" (same kind+target), not per poll tick. */
             var lastBlockStatsSignature: String? = null
+            var lastNotifKey: String? = null
             val mono = SystemMonochromeController(applicationContext, prefs)
             while (isActive) {
                 resetBreakDayIfNeeded(prefs)
@@ -137,7 +130,7 @@ class FocusEnforcementService : Service() {
                         if (blockType.isNotBlank() && targetKey.isNotBlank()) "$blockType|$targetKey" else null
                     if (signature != null && signature != lastBlockStatsSignature) {
                         blockStatsDao.increment(
-                            LocalDate.now().toEpochDay(),
+                            LocalDate.now(ZoneId.systemDefault()).toEpochDay(),
                             blockType,
                             targetKey,
                         )
@@ -155,6 +148,27 @@ class FocusEnforcementService : Service() {
                     lastBlockStatsSignature = null
                     BlockOverlayActivity.dismiss(applicationContext)
                 }
+                val breakWall = prefs.breakEndEpochMs.first()
+                val wallNow = System.currentTimeMillis()
+                val notifKey =
+                    if (breakWall != null && wallNow < breakWall) {
+                        "b|${(breakWall - wallNow) / 1000}"
+                    } else {
+                        "f"
+                    }
+                if (notifKey != lastNotifKey) {
+                    lastNotifKey = notifKey
+                    val n = buildForegroundNotification(breakWall, wallNow)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(
+                            NOTIF_ID,
+                            n,
+                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                        )
+                    } else {
+                        startForeground(NOTIF_ID, n)
+                    }
+                }
                 val aggressive = prefs.aggressivePoll.first()
                 delay(if (aggressive) 400 else 1200)
             }
@@ -163,11 +177,15 @@ class FocusEnforcementService : Service() {
     }
 
     private suspend fun resetBreakDayIfNeeded(prefs: FocusPreferences) {
-        val today = LocalDate.now().toEpochDay()
+        val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
         val stored = prefs.breakDayEpochDay.first()
-        if (stored != 0L && stored != today) {
+        // Include stored == 0 (never written): prefs default must not block rolling over to "today".
+        if (stored != today) {
+            val end = prefs.breakEndEpochMs.first()
+            val nowMs = System.currentTimeMillis()
+            val breakStillActive = end != null && nowMs < end
             prefs.setBreakState(
-                endEpochMs = null,
+                endEpochMs = if (breakStillActive) end else null,
                 breaksUsed = 0,
                 dayEpochDay = today,
                 lastBreakEnd = prefs.lastBreakEndedEpochMs.first(),
@@ -184,6 +202,34 @@ class FocusEnforcementService : Service() {
             SystemMonochromeController(applicationContext, app.prefs).restoreIfHeld()
         }
         super.onDestroy()
+    }
+
+    private fun buildForegroundNotification(breakEndWallMs: Long?, nowWallMs: Long): Notification {
+        val pending = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val b = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setContentIntent(pending)
+            .setOngoing(true)
+        val end = breakEndWallMs
+        if (end != null && nowWallMs < end) {
+            val remaining = (end - nowWallMs).coerceAtLeast(0L)
+            b.setContentTitle(getString(R.string.fg_notification_title_on_break))
+                .setContentText(
+                    getString(
+                        R.string.fg_notification_text_on_break,
+                        BreakTimeFormatter.formatMmSs(remaining),
+                    ),
+                )
+        } else {
+            b.setContentTitle(getString(R.string.fg_notification_title))
+                .setContentText(getString(R.string.fg_notification_text))
+        }
+        return b.build()
     }
 
     private fun createChannel() {
