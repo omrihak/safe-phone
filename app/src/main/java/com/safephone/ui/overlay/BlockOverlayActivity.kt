@@ -37,7 +37,11 @@ class BlockOverlayActivity : ComponentActivity() {
         return map
     }
 
-    /** Web blocks only: load a neutral URL in the blocked browser, then return this overlay to the foreground. */
+    /**
+     * When the blocked foreground app is a browser: clear the offensive tab (neutral URLs first),
+     * then return this overlay to the foreground. Pure web/domain blocks stay in the browser and
+     * use [com.safephone.browser.BrowserNeutralTabLauncher] from [com.safephone.service.FocusEnforcementService] instead.
+     */
     private fun replaceBlockedBrowserTabWithLanding() {
         val browserPkg = intent.getStringExtra(EXTRA_BROWSER_PACKAGE)?.trim().orEmpty()
         if (browserPkg.isEmpty()) return
@@ -171,10 +175,12 @@ class BlockOverlayActivity : ComponentActivity() {
         private var current: BlockOverlayActivity? = null
 
         /**
-         * @param browserPackage When set (foreground was a browser), the overlay replaces the tab with
-         * about:newtab / about:blank first (then hosted landing as fallback), then brings this activity back
-         * to the foreground so the user stays on the block screen. "Go to home" uses landing-first order before HOME.
-         * @param blockType Landing query `type`: `app`, `web`, or `browser_lock`.
+         * App / budget blocks only. Browser domain rules redirect to the hosted landing inside the browser.
+         *
+         * @param browserPackage When the blocked app is a browser, the tab is replaced with neutral URLs first,
+         * then this activity is brought back so the user sees the in-app block screen. "Go to home" uses
+         * landing-first order before HOME.
+         * @param blockType Stats / landing query `type`: `app`, `web`, or `browser_lock` (mirrors policy).
          */
         fun show(
             context: Context,

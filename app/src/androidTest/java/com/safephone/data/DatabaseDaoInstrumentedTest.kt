@@ -73,6 +73,7 @@ class DatabaseDaoInstrumentedTest {
         assertEquals(2, rows.size)
         val game = rows.find { it.targetKey == "com.game" }!!
         assertEquals(2, game.count)
+        assertEquals(2, dao.getCount(day, "app", "com.game"))
         assertEquals("app", game.kind)
         val site = rows.find { it.targetKey == "news.example" }!!
         assertEquals(1, site.count)

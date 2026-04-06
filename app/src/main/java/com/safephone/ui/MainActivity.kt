@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.InvertColors
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Coffee
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -58,7 +59,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -111,6 +111,7 @@ import com.safephone.data.DomainRuleEntity
 import com.safephone.export.RulesExporter
 import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
+import com.safephone.service.PartnerBlockAlert
 import com.safephone.ui.theme.SafePhoneTheme
 import com.safephone.widget.FocusWidgetReceiver
 import kotlinx.coroutines.Dispatchers
@@ -232,6 +233,11 @@ class MainActivity : ComponentActivity() {
                     composable("system_grayscale") {
                         FeatureScaffold(nav, stringResource(R.string.system_grayscale_title)) { padding ->
                             SystemGrayscaleRoute(app, Modifier.padding(padding))
+                        }
+                    }
+                    composable("partner_alert") {
+                        FeatureScaffold(nav, stringResource(R.string.partner_alert_title)) { padding ->
+                            PartnerAlertRoute(app, Modifier.padding(padding))
                         }
                     }
                 }
@@ -375,14 +381,18 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
     val breakEnd by prefs.breakEndEpochMs.collectAsState(initial = null)
     val breaksUsed by prefs.breaksUsedToday.collectAsState(initial = 0)
     val breakDay by prefs.breakDayEpochDay.collectAsState(initial = 0L)
+    val lastBreakEndedMs by prefs.lastBreakEndedEpochMs.collectAsState(initial = 0L)
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(breakPolicy?.minGapBetweenBreaksMinutes) {
         FocusEnforcementService.start(context.applicationContext)
         while (isActive) {
             now = System.currentTimeMillis()
             val end = prefs.breakEndEpochMs.first()
             val ticking = end != null && now < end
-            delay(if (ticking) 1_000L else 15_000L)
+            val lastEnd = prefs.lastBreakEndedEpochMs.first()
+            val gapMinutes = breakPolicy?.minGapBetweenBreaksMinutes ?: 30
+            val waitingGap = lastEnd > 0L && (now - lastEnd) < gapMinutes * 60_000L
+            delay(if (ticking || waitingGap) 1_000L else 15_000L)
         }
     }
     val onBreak = breakEnd != null && now < breakEnd!!
@@ -390,29 +400,45 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
     val usedToday = if (breakDay != today) 0 else breaksUsed
     val maxBreaks = breakPolicy?.maxBreaksPerDay ?: 5
     val breaksLeft = (maxBreaks - usedToday).coerceAtLeast(0)
-    val canStartBreakNow = breaksLeft > 0 && !onBreak
-    val destinations = remember {
-        listOf(
-            HomeDestination("blocked", "Blocked apps", "Always blocked when enforcing", Icons.Filled.Block),
-            HomeDestination("domains", "Domain rules", "Block sites in the browser", Icons.Outlined.Language),
-            HomeDestination("budgets", "Daily budgets", "Per-app time limits", Icons.Outlined.Timer),
-            HomeDestination("block_stats", "Last 30 days", "Times blocked (30 days)", Icons.Outlined.BarChart),
-            HomeDestination("breaks", "Break policy", "How breaks work", Icons.Outlined.Coffee),
-            HomeDestination("export", "Export rules", "Share JSON backup", Icons.Outlined.UploadFile),
-            HomeDestination(
-                "system_grayscale",
-                "Grayscale display",
-                "System color correction during focus",
-                Icons.Outlined.InvertColors,
-            ),
-        )
-    }
+    val gapMinutes = breakPolicy?.minGapBetweenBreaksMinutes ?: 30
+    val gapOk =
+        lastBreakEndedMs <= 0L || (now - lastBreakEndedMs) >= gapMinutes * 60_000L
+    val canStartBreakNow = breaksLeft > 0 && !onBreak && gapOk
+    val gapWaitMinutes =
+        if (lastBreakEndedMs > 0L && !gapOk) {
+            val requiredMs = gapMinutes * 60_000L
+            val elapsed = now - lastBreakEndedMs
+            ((requiredMs - elapsed + 59_999) / 60_000).toInt().coerceAtLeast(1)
+        } else {
+            0
+        }
+    val destinations = listOf(
+        HomeDestination("blocked", "Blocked apps", "Always blocked when enforcing", Icons.Filled.Block),
+        HomeDestination("domains", "Domain rules", "Block sites in the browser", Icons.Outlined.Language),
+        HomeDestination("budgets", "Daily budgets", "Per-app time limits", Icons.Outlined.Timer),
+        HomeDestination("block_stats", "Last 30 days", "Times blocked (30 days)", Icons.Outlined.BarChart),
+        HomeDestination(
+            "partner_alert",
+            stringResource(R.string.partner_alert_title),
+            stringResource(R.string.partner_alert_subtitle),
+            Icons.Outlined.Email,
+        ),
+        HomeDestination("breaks", "Break policy", "How breaks work", Icons.Outlined.Coffee),
+        HomeDestination("export", "Export rules", "Share JSON backup", Icons.Outlined.UploadFile),
+        HomeDestination(
+            "system_grayscale",
+            "Grayscale display",
+            "System color correction during focus",
+            Icons.Outlined.InvertColors,
+        ),
+    )
     val testTagForRoute = remember {
         mapOf(
             "blocked" to SafePhoneTestTags.HOME_NAV_BLOCKED,
             "domains" to SafePhoneTestTags.HOME_NAV_DOMAINS,
             "budgets" to SafePhoneTestTags.HOME_NAV_BUDGETS,
             "block_stats" to SafePhoneTestTags.HOME_NAV_BLOCK_STATS,
+            "partner_alert" to SafePhoneTestTags.HOME_NAV_PARTNER_ALERT,
             "breaks" to SafePhoneTestTags.HOME_NAV_BREAKS,
             "export" to SafePhoneTestTags.HOME_NAV_EXPORT,
             "system_grayscale" to SafePhoneTestTags.HOME_NAV_SYSTEM_GRAYSCALE,
@@ -491,6 +517,13 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.testTag(SafePhoneTestTags.HOME_BREAKS_BALANCE),
                         )
+                        if (gapWaitMinutes > 0) {
+                            Text(
+                                stringResource(R.string.home_break_gap_wait, gapWaitMinutes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         FilledTonalButton(
                             onClick = {
                                 scope.launch {
@@ -633,6 +666,115 @@ private fun SystemGrayscaleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.system_grayscale_copy))
+        }
+    }
+}
+
+@Composable
+private fun PartnerAlertRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val prefs = app.prefs
+    val scope = rememberCoroutineScope()
+    val enabled by prefs.partnerBlockAlertEnabled.collectAsState(initial = false)
+    val thresholdStored by prefs.partnerBlockAlertThreshold.collectAsState(initial = 5)
+    val storedPhone by prefs.partnerAlertPhoneDigits.collectAsState(initial = "")
+
+    var phoneDraft by remember { mutableStateOf("") }
+    var thresholdDraft by remember { mutableStateOf("5") }
+    LaunchedEffect(storedPhone) {
+        phoneDraft = storedPhone
+    }
+    LaunchedEffect(thresholdStored) {
+        thresholdDraft = thresholdStored.toString()
+    }
+
+    var partnerSmsGranted by remember {
+        mutableStateOf(PartnerBlockAlert.hasSendSmsPermission(context))
+    }
+    val partnerSmsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {
+        partnerSmsGranted = PartnerBlockAlert.hasSendSmsPermission(context)
+    }
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay(2_000)
+            partnerSmsGranted = PartnerBlockAlert.hasSendSmsPermission(context)
+        }
+    }
+
+    val canSendTest =
+        partnerSmsGranted && PartnerBlockAlert.normalizeSmsDestination(phoneDraft) != null
+
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text(
+            stringResource(R.string.partner_alert_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        RowSwitch(
+            label = stringResource(R.string.partner_alert_enable),
+            checked = enabled,
+            onChecked = { v -> scope.launch { prefs.setPartnerBlockAlertEnabled(v) } },
+        )
+        OutlinedTextField(
+            value = phoneDraft,
+            onValueChange = { phoneDraft = it },
+            modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.PARTNER_ALERT_PHONE_FIELD),
+            label = { Text(stringResource(R.string.partner_alert_phone_label)) },
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+        )
+        OutlinedTextField(
+            value = thresholdDraft,
+            onValueChange = { thresholdDraft = it.filter { ch -> ch.isDigit() } },
+            modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.PARTNER_ALERT_THRESHOLD_FIELD),
+            label = { Text(stringResource(R.string.partner_alert_threshold_label)) },
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        )
+        if (partnerSmsGranted) {
+            Text(
+                stringResource(R.string.partner_alert_sms_granted),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        } else {
+            OutlinedButton(
+                onClick = {
+                    partnerSmsPermissionLauncher.launch(Manifest.permission.SEND_SMS)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.partner_alert_grant_sms))
+            }
+        }
+        OutlinedButton(
+            onClick = { PartnerBlockAlert.sendTestSmsNow(context, phoneDraft) },
+            enabled = canSendTest,
+            modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.PARTNER_ALERT_SEND_TEST),
+        ) {
+            Text(stringResource(R.string.partner_alert_send_test))
+        }
+        Button(
+            onClick = {
+                scope.launch {
+                    prefs.setPartnerAlertPhoneDigits(phoneDraft)
+                    val t = thresholdDraft.toIntOrNull()?.coerceAtLeast(1) ?: 5
+                    prefs.setPartnerBlockAlertThreshold(t)
+                }
+            },
+            modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.PARTNER_ALERT_SAVE),
+        ) {
+            Text(stringResource(R.string.partner_alert_save))
         }
     }
 }

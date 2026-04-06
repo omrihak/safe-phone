@@ -16,6 +16,7 @@ import com.safephone.BuildConfig
 import com.safephone.R
 import com.safephone.accessibility.FocusAccessibilityService
 import com.safephone.data.FocusPreferences
+import com.safephone.browser.BrowserNeutralTabLauncher
 import com.safephone.policy.PolicyEngine
 import com.safephone.ui.MainActivity
 import com.safephone.ui.overlay.BlockOverlayActivity
@@ -70,6 +71,8 @@ class FocusEnforcementService : Service() {
             var lastWebHostWhileBrowserForeground: String? = null
             /** Debounce: one count per block "session" (same kind+target), not per poll tick. */
             var lastBlockStatsSignature: String? = null
+            /** Web-only blocks: open landing in browser once per session, not every poll. */
+            var lastWebLandingRedirectSignature: String? = null
             var lastNotifKey: String? = null
             val mono = SystemMonochromeController(applicationContext, prefs)
             while (isActive) {
@@ -129,23 +132,51 @@ class FocusEnforcementService : Service() {
                     val signature =
                         if (blockType.isNotBlank() && targetKey.isNotBlank()) "$blockType|$targetKey" else null
                     if (signature != null && signature != lastBlockStatsSignature) {
-                        blockStatsDao.increment(
-                            LocalDate.now(ZoneId.systemDefault()).toEpochDay(),
+                        val dayEpoch = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+                        blockStatsDao.increment(dayEpoch, blockType, targetKey)
+                        lastBlockStatsSignature = signature
+                        PartnerBlockAlert.maybeNotifyAfterIncrement(
+                            applicationContext,
+                            prefs,
+                            blockStatsDao,
+                            dayEpoch,
                             blockType,
                             targetKey,
                         )
-                        lastBlockStatsSignature = signature
                     }
-                    BlockOverlayActivity.show(
-                        applicationContext,
-                        decision.reason,
-                        browserPkg,
-                        blockType,
-                        landingHost,
-                        landingPkg,
-                    )
+                    when {
+                        decision.blockApp -> {
+                            lastWebLandingRedirectSignature = null
+                            BlockOverlayActivity.show(
+                                applicationContext,
+                                decision.reason,
+                                browserPkg,
+                                blockType,
+                                landingHost,
+                                landingPkg,
+                            )
+                        }
+                        decision.blockWebOverlay && browserPkg != null -> {
+                            BlockOverlayActivity.dismiss(applicationContext)
+                            if (signature != null && signature != lastWebLandingRedirectSignature) {
+                                lastWebLandingRedirectSignature = signature
+                                val landingQuery = buildMap {
+                                    decision.reason.trim().takeIf { it.isNotEmpty() }?.let { put("reason", it) }
+                                    put("type", blockType)
+                                    landingHost?.trim()?.takeIf { it.isNotEmpty() }?.let { put("host", it) }
+                                }
+                                BrowserNeutralTabLauncher.openNeutralTabThenClearSnapshot(
+                                    applicationContext,
+                                    browserPkg,
+                                    landingQuery,
+                                    BrowserNeutralTabLauncher.BlockExitUriOrder.LandingFirst,
+                                )
+                            }
+                        }
+                    }
                 } else {
                     lastBlockStatsSignature = null
+                    lastWebLandingRedirectSignature = null
                     BlockOverlayActivity.dismiss(applicationContext)
                 }
                 val breakWall = prefs.breakEndEpochMs.first()

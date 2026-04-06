@@ -17,6 +17,8 @@
     <string name="widget_toast_break_started">Break started</string>
     <string name="widget_toast_no_breaks">No breaks left today</string>
     <string name="widget_toast_already_on_break">Already on a break</string>
+    <string name="widget_toast_break_gap">Wait longer before the next break</string>
+    <string name="home_break_gap_wait">Wait %1$d min before another break</string>
     <plurals name="widget_breaks_left">
         <item quantity="one">%d break left today</item>
         <item quantity="other">%d breaks left today</item>
@@ -45,4 +47,24 @@
     <string name="widget_grayscale_toast_on">Grayscale on</string>
     <string name="widget_grayscale_toast_off">Grayscale off</string>
     <string name="widget_grayscale_toast_error">Could not change display setting</string>
+    <string name="partner_alert_title">Partner alert</string>
+    <string name="partner_alert_subtitle">Notify someone after repeated blocks</string>
+    <string name="partner_alert_channel_name">Partner block alerts</string>
+    <string name="partner_alert_channel_desc">Summary when a partner alert is triggered</string>
+    <string name="partner_alert_enable">Enable partner alert</string>
+    <string name="partner_alert_body">When you hit the threshold for block sessions on the same app or site in one day, SafePhone sends one SMS per target per day. Include country code in the number. Grant SMS permission when prompted.</string>
+    <string name="partner_alert_phone_label">Phone (e.g. +14155552671 or 14155552671)</string>
+    <string name="partner_alert_threshold_label">Block sessions before alert (per app/site, per day)</string>
+    <string name="partner_alert_save">Save contact &amp; threshold</string>
+    <string name="partner_alert_grant_sms">Grant SMS permission</string>
+    <string name="partner_alert_sms_granted">SMS permission granted</string>
+    <string name="partner_alert_send_test">Send test SMS</string>
+    <string name="partner_alert_test_message_body">SafePhone test: partner SMS is working.</string>
+    <string name="partner_alert_notif_title_sms_sent">Partner alert — SMS sent</string>
+    <string name="partner_alert_notif_text_sms_sent_ok">The message was accepted by the SMS system. If it does not arrive, check signal and the number.</string>
+    <string name="partner_alert_notif_title_sms_denied">Partner alert — SMS blocked</string>
+    <string name="partner_alert_notif_text_sms_denied">Open SafePhone → Partner alert and grant SMS permission.</string>
+    <string name="partner_alert_notif_title_sms_failed">Partner alert — SMS failed</string>
+    <string name="partner_alert_notif_text_sms_failed">Could not send SMS. Check the number and your signal.</string>
+    <string name="partner_alert_notif_text_sms_failed_detail">SMS error: %1$s. Check signal, SIM, and that the number includes country code.</string>
 </resources>

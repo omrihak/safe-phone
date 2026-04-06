@@ -37,6 +37,8 @@ class FocusWidgetReceiver : AppWidgetProvider() {
                         Toast.makeText(appCtx, appCtx.getString(R.string.widget_toast_already_on_break), Toast.LENGTH_SHORT).show()
                     mgr.breaksRemainingToday(policy) <= 0 ->
                         Toast.makeText(appCtx, appCtx.getString(R.string.widget_toast_no_breaks), Toast.LENGTH_SHORT).show()
+                    !mgr.gapSatisfied(policy) ->
+                        Toast.makeText(appCtx, appCtx.getString(R.string.widget_toast_break_gap), Toast.LENGTH_SHORT).show()
                     mgr.startBreak(policy.breakDurationMinutes, policy) -> {
                         FocusEnforcementService.start(appCtx)
                         Toast.makeText(appCtx, appCtx.getString(R.string.widget_toast_break_started), Toast.LENGTH_SHORT).show()

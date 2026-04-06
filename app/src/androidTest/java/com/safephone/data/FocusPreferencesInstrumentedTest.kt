@@ -39,6 +39,24 @@ class FocusPreferencesInstrumentedTest {
     }
 
     @Test
+    fun partnerBlockAlert_roundTrip_and_claim() = runBlocking {
+        val prefs = FocusPreferences(context)
+        prefs.setPartnerBlockAlertEnabled(true)
+        prefs.setPartnerAlertPhoneDigits("14155552671")
+        prefs.setPartnerBlockAlertThreshold(7)
+        assertTrue(prefs.partnerBlockAlertEnabled.first())
+        assertEquals("14155552671", prefs.partnerAlertPhoneDigits.first())
+        assertEquals(7, prefs.partnerBlockAlertThreshold.first())
+
+        val day = 20_001L
+        assertTrue(prefs.claimPartnerAlertForTarget(day, "app", "com.foo"))
+        assertFalse(prefs.claimPartnerAlertForTarget(day, "app", "com.foo"))
+        assertTrue(prefs.claimPartnerAlertForTarget(day, "web", "x.com"))
+        prefs.setPartnerBlockAlertEnabled(false)
+        assertFalse(prefs.partnerBlockAlertEnabled.first())
+    }
+
+    @Test
     fun breakState_roundTrip() = runBlocking {
         val prefs = FocusPreferences(context)
         val end = System.currentTimeMillis() + 60_000L

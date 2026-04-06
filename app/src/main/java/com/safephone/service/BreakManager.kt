@@ -36,8 +36,20 @@ class BreakManager(
         return System.currentTimeMillis() < end
     }
 
+    /**
+     * True if [policy.minGapBetweenBreaksMinutes] has passed since the last break ended
+     * (or no break has ended yet — [FocusPreferences.lastBreakEndedEpochMs] is 0).
+     */
+    suspend fun gapSatisfied(policy: BreakPolicyEntity): Boolean {
+        val lastEnd = prefs.lastBreakEndedEpochMs.first()
+        if (lastEnd <= 0L) return true
+        val minutes = policy.minGapBetweenBreaksMinutes.coerceAtLeast(0)
+        val requiredMs = minutes * 60_000L
+        return System.currentTimeMillis() - lastEnd >= requiredMs
+    }
+
     suspend fun canStartBreak(policy: BreakPolicyEntity): Boolean {
-        return breaksRemainingToday(policy) > 0 && !isOnBreakNow()
+        return breaksRemainingToday(policy) > 0 && !isOnBreakNow() && gapSatisfied(policy)
     }
 
     suspend fun startBreak(durationMinutes: Int, policy: BreakPolicyEntity): Boolean {

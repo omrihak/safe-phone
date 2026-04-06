@@ -109,6 +109,11 @@ interface BlockStatsDao {
     )
     suspend fun increment(dayEpochDay: Long, kind: String, targetKey: String)
 
+    @Query(
+        "SELECT count FROM block_stats WHERE dayEpochDay = :day AND kind = :kind AND targetKey = :targetKey",
+    )
+    suspend fun getCount(day: Long, kind: String, targetKey: String): Int?
+
     @Query("SELECT * FROM block_stats WHERE dayEpochDay = :day ORDER BY count DESC, kind ASC, targetKey ASC")
     fun observeForDay(day: Long): Flow<List<BlockStatsEntity>>
 
