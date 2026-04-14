@@ -111,6 +111,7 @@ import com.safephone.data.AppBudgetEntity
 import com.safephone.data.BlockStatsAggregateRow
 import com.safephone.data.BlockedAppEntity
 import com.safephone.data.DomainRuleEntity
+import com.safephone.data.SocialMediaCategory
 import com.safephone.github.VibeCodingGitHub
 import com.safephone.export.RulesExporter
 import com.safephone.service.BreakManager
@@ -871,7 +872,9 @@ private fun VibeCodingRoute(modifier: Modifier = Modifier) {
 private fun BlockedListRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val db = app.database
+    val prefs = app.prefs
     val blocked by db.blockedAppDao().observeAll().collectAsState(initial = emptyList())
+    val socialMediaBlocked by prefs.socialMediaCategoryBlocked.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
     var manualPackage by remember { mutableStateOf("") }
@@ -901,6 +904,13 @@ private fun BlockedListRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
                 "Search or enter a package manually, then scroll to block from your installed apps.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
+            SocialMediaCategoryCard(
+                checked = socialMediaBlocked,
+                onCheckedChange = { scope.launch { prefs.setSocialMediaCategoryBlocked(it) } },
+                items = SocialMediaCategory.packages,
             )
         }
         item {
@@ -1060,7 +1070,9 @@ private fun BlockedListRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
 @Composable
 private fun DomainListRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
     val db = app.database
+    val prefs = app.prefs
     val list by db.domainRuleDao().observeAll().collectAsState(initial = emptyList())
+    val socialMediaBlocked by prefs.socialMediaCategoryBlocked.collectAsState(initial = false)
     val scope = rememberCoroutineScope()
     var pattern by remember { mutableStateOf("") }
     Column(
@@ -1074,6 +1086,11 @@ private fun DomainListRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
             "Match browser hostnames. Use a leading dot for suffixes (e.g. .example.com blocks all subdomains).",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SocialMediaCategoryCard(
+            checked = socialMediaBlocked,
+            onCheckedChange = { scope.launch { prefs.setSocialMediaCategoryBlocked(it) } },
+            items = SocialMediaCategory.domains,
         )
         OutlinedTextField(
             pattern,
@@ -1151,6 +1168,69 @@ private fun RowSwitch(
                 onCheckedChange = onChecked,
                 modifier = if (switchTestTag != null) Modifier.testTag(switchTestTag) else Modifier,
             )
+        }
+    }
+}
+
+@Composable
+private fun SocialMediaCategoryCard(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    items: List<String>,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (checked) MaterialTheme.colorScheme.errorContainer
+            else MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = if (checked) MaterialTheme.colorScheme.onErrorContainer
+            else MaterialTheme.colorScheme.onSurface,
+        ),
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Social Media",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "${items.size} entries — block all with one toggle",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = checked,
+                    onCheckedChange = onCheckedChange,
+                    modifier = Modifier.testTag(SafePhoneTestTags.SOCIAL_MEDIA_CATEGORY_TOGGLE),
+                )
+            }
+            OutlinedButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                Text(if (expanded) "Hide list" else "Show list")
+            }
+            if (expanded) {
+                Column(
+                    modifier = Modifier.padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    items.forEach { entry ->
+                        Text(
+                            entry,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+            }
         }
     }
 }

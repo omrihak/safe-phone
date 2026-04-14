@@ -1,6 +1,7 @@
 package com.safephone.policy
 
 import com.safephone.data.FocusProfileEntity
+import com.safephone.data.SocialMediaCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -301,5 +302,62 @@ class PolicyEngineTest {
         val map = mapOf("a" to 123L)
         assertEquals(123L, PolicyEngine.minutesUsedToday(map, "a", zone))
         assertEquals(0L, PolicyEngine.minutesUsedToday(map, "missing", zone))
+    }
+
+    // --- Social Media Category ---
+
+    @Test
+    fun social_media_facebook_domain_blocked() {
+        assertTrue(PolicyEngine.domainBlocked("www.facebook.com", SocialMediaCategory.domains))
+        assertTrue(PolicyEngine.domainBlocked("m.facebook.com", SocialMediaCategory.domains))
+        assertTrue(PolicyEngine.domainBlocked("facebook.com", SocialMediaCategory.domains))
+    }
+
+    @Test
+    fun social_media_instagram_domain_blocked() {
+        assertTrue(PolicyEngine.domainBlocked("instagram.com", SocialMediaCategory.domains))
+        assertTrue(PolicyEngine.domainBlocked("www.instagram.com", SocialMediaCategory.domains))
+    }
+
+    @Test
+    fun social_media_tiktok_domain_blocked() {
+        assertTrue(PolicyEngine.domainBlocked("tiktok.com", SocialMediaCategory.domains))
+        assertTrue(PolicyEngine.domainBlocked("www.tiktok.com", SocialMediaCategory.domains))
+    }
+
+    @Test
+    fun social_media_category_domains_block_web_overlay() {
+        val now = Instant.now()
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.android.chrome",
+            webHost = "www.instagram.com",
+            blockDomains = SocialMediaCategory.domains,
+        )
+        val d = PolicyEngine.evaluate(input)
+        assertTrue(d.blockWebOverlay)
+        assertTrue(d.reason.contains("domain", ignoreCase = true))
+    }
+
+    @Test
+    fun social_media_category_packages_block_app() {
+        val now = Instant.now()
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.facebook.katana",
+            blocked = SocialMediaCategory.packages.toSet(),
+        )
+        val d = PolicyEngine.evaluate(input)
+        assertTrue(d.blockApp)
+    }
+
+    @Test
+    fun social_media_non_social_domain_not_blocked_by_category() {
+        assertFalse(PolicyEngine.domainBlocked("example.com", SocialMediaCategory.domains))
+        assertFalse(PolicyEngine.domainBlocked("google.com", SocialMediaCategory.domains))
     }
 }

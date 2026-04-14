@@ -3,6 +3,7 @@ package com.safephone.service
 import com.safephone.BuildConfig
 import com.safephone.data.AppDatabase
 import com.safephone.data.FocusPreferences
+import com.safephone.data.SocialMediaCategory
 import com.safephone.policy.PolicyInput
 import kotlinx.coroutines.flow.first
 import java.time.Instant
@@ -24,9 +25,14 @@ class PolicyAssembler(
         val profileId = prefs.activeProfileId.first()
         val profile = profileId?.let { db.focusProfileDao().getById(it) }
             ?: db.focusProfileDao().getAll().firstOrNull()
-        val blocked = db.blockedAppDao().getAll().map { it.packageName }.toSet()
+        val blocked = db.blockedAppDao().getAll().map { it.packageName }.toMutableSet()
         val domains = db.domainRuleDao().getAll()
-        val block = domains.filter { !it.isAllowlist }.map { it.pattern }
+        val block = domains.filter { !it.isAllowlist }.map { it.pattern }.toMutableList()
+        val socialMediaBlocked = prefs.socialMediaCategoryBlocked.first()
+        if (socialMediaBlocked) {
+            blocked.addAll(SocialMediaCategory.packages)
+            block.addAll(SocialMediaCategory.domains)
+        }
         val policy = db.breakPolicyDao().get() ?: com.safephone.data.BreakPolicyEntity()
         val budgetRows = db.appBudgetDao().getAll()
         val budgets = budgetRows.associate { it.packageName to it.maxMinutesPerDay }

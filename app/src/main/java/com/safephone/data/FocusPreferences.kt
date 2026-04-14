@@ -41,6 +41,9 @@ class FocusPreferences(private val context: Context) {
     val systemMonochromeAutomationEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_SYSTEM_MONOCHROME_AUTO] ?: true }
 
+    val socialMediaCategoryBlocked: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_SOCIAL_MEDIA_CATEGORY] ?: false }
+
     val partnerBlockAlertEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_PARTNER_BLOCK_ALERT] ?: false }
     val partnerBlockAlertThreshold: Flow<Int> =
@@ -98,6 +101,10 @@ class FocusPreferences(private val context: Context) {
 
     suspend fun setSystemMonochromeAutomationEnabled(v: Boolean) {
         context.dataStore.edit { it[KEY_SYSTEM_MONOCHROME_AUTO] = v }
+    }
+
+    suspend fun setSocialMediaCategoryBlocked(v: Boolean) {
+        context.dataStore.edit { it[KEY_SOCIAL_MEDIA_CATEGORY] = v }
     }
 
     suspend fun setPartnerBlockAlertEnabled(v: Boolean) {
@@ -183,6 +190,7 @@ class FocusPreferences(private val context: Context) {
         private val KEY_DALTONIZER_SNAP = booleanPreferencesKey("daltonizer_snapshot")
         private val KEY_DALTONIZER_PREV_ENABLED = intPreferencesKey("daltonizer_prev_enabled")
         private val KEY_DALTONIZER_PREV_MODE = intPreferencesKey("daltonizer_prev_mode")
+        private val KEY_SOCIAL_MEDIA_CATEGORY = booleanPreferencesKey("social_media_category")
         private val KEY_PARTNER_BLOCK_ALERT = booleanPreferencesKey("partner_block_alert")
         private val KEY_PARTNER_BLOCK_THRESHOLD = intPreferencesKey("partner_block_threshold")
         private val KEY_PARTNER_ALERT_PHONE = stringPreferencesKey("partner_alert_phone")
