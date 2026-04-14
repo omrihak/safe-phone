@@ -15,6 +15,7 @@ object SafePhoneTestTags {
     const val HOME_NAV_BLOCK_STATS = "home_nav_block_stats"
     const val HOME_NAV_SYSTEM_GRAYSCALE = "home_nav_system_grayscale"
     const val HOME_NAV_PARTNER_ALERT = "home_nav_partner_alert"
+    const val HOME_NAV_VIBE_CODING = "home_nav_vibe_coding"
     const val PARTNER_ALERT_PHONE_FIELD = "partner_alert_phone_field"
     const val PARTNER_ALERT_THRESHOLD_FIELD = "partner_alert_threshold_field"
     const val PARTNER_ALERT_SAVE = "partner_alert_save"

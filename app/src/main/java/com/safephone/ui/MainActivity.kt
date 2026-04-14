@@ -243,6 +243,11 @@ class MainActivity : ComponentActivity() {
                             PartnerAlertRoute(app, Modifier.padding(padding))
                         }
                     }
+                    composable("vibe_coding") {
+                        FeatureScaffold(nav, stringResource(R.string.vibe_coding_title)) { padding ->
+                            VibeCodingRoute(Modifier.padding(padding))
+                        }
+                    }
                 }
             }
         }
@@ -439,7 +444,18 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             "System color correction during focus",
             Icons.Outlined.InvertColors,
         ),
-    )
+    ) + if (BuildConfig.GITHUB_ISSUES_OWNER.isNotEmpty() && BuildConfig.GITHUB_ISSUES_REPO.isNotEmpty()) {
+        listOf(
+            HomeDestination(
+                "vibe_coding",
+                stringResource(R.string.vibe_coding_title),
+                stringResource(R.string.vibe_coding_nav_subtitle),
+                Icons.Outlined.AutoAwesome,
+            ),
+        )
+    } else {
+        emptyList()
+    }
     val testTagForRoute = remember {
         mapOf(
             "blocked" to SafePhoneTestTags.HOME_NAV_BLOCKED,
@@ -450,6 +466,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             "breaks" to SafePhoneTestTags.HOME_NAV_BREAKS,
             "export" to SafePhoneTestTags.HOME_NAV_EXPORT,
             "system_grayscale" to SafePhoneTestTags.HOME_NAV_SYSTEM_GRAYSCALE,
+            "vibe_coding" to SafePhoneTestTags.HOME_NAV_VIBE_CODING,
         )
     }
     Scaffold(
@@ -546,81 +563,6 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                             enabled = canStartBreakNow,
                             modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.HOME_START_BREAK),
                         ) { Text("Start break (${breakPolicy?.breakDurationMinutes ?: 10} min)") }
-                    }
-                }
-            }
-            if (BuildConfig.GITHUB_ISSUES_OWNER.isNotEmpty() && BuildConfig.GITHUB_ISSUES_REPO.isNotEmpty()) {
-                item(key = "vibe_coding") {
-                    var vibeRequestText by remember { mutableStateOf("") }
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                    ) {
-                        Column(
-                            Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Icon(
-                                    Icons.Outlined.AutoAwesome,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(26.dp),
-                                )
-                                Text(
-                                    stringResource(R.string.vibe_coding_title),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                            Text(
-                                stringResource(R.string.vibe_coding_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            OutlinedTextField(
-                                value = vibeRequestText,
-                                onValueChange = { vibeRequestText = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag(SafePhoneTestTags.HOME_VIBE_REQUEST_FIELD),
-                                label = { Text(stringResource(R.string.vibe_coding_field_label)) },
-                                minLines = 3,
-                                maxLines = 8,
-                                keyboardOptions = KeyboardOptions(
-                                    capitalization = KeyboardCapitalization.Sentences,
-                                ),
-                            )
-                            FilledTonalButton(
-                                onClick = {
-                                    val uri = VibeCodingGitHub.newIssueUri(
-                                        BuildConfig.GITHUB_ISSUES_OWNER,
-                                        BuildConfig.GITHUB_ISSUES_REPO,
-                                        vibeRequestText,
-                                    )
-                                    if (uri != null) {
-                                        val intent = Intent(Intent.ACTION_VIEW, uri)
-                                        if (intent.resolveActivity(context.packageManager) != null) {
-                                            context.startActivity(intent)
-                                        } else {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.vibe_coding_no_browser,
-                                                Toast.LENGTH_LONG,
-                                            ).show()
-                                        }
-                                    }
-                                },
-                                enabled = vibeRequestText.isNotBlank(),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag(SafePhoneTestTags.HOME_VIBE_OPEN_GITHUB),
-                            ) { Text(stringResource(R.string.vibe_coding_open_github)) }
-                        }
                     }
                 }
             }
@@ -859,6 +801,63 @@ private fun PartnerAlertRoute(app: SafePhoneApp, modifier: Modifier = Modifier) 
         ) {
             Text(stringResource(R.string.partner_alert_save))
         }
+    }
+}
+
+@Composable
+private fun VibeCodingRoute(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var vibeRequestText by remember { mutableStateOf("") }
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text(
+            stringResource(R.string.vibe_coding_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = vibeRequestText,
+            onValueChange = { vibeRequestText = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(SafePhoneTestTags.HOME_VIBE_REQUEST_FIELD),
+            label = { Text(stringResource(R.string.vibe_coding_field_label)) },
+            minLines = 3,
+            maxLines = 8,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+            ),
+        )
+        FilledTonalButton(
+            onClick = {
+                val uri = VibeCodingGitHub.newIssueUri(
+                    BuildConfig.GITHUB_ISSUES_OWNER,
+                    BuildConfig.GITHUB_ISSUES_REPO,
+                    vibeRequestText,
+                )
+                if (uri != null) {
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    if (intent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(intent)
+                    } else {
+                        Toast.makeText(
+                            context,
+                            R.string.vibe_coding_no_browser,
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
+            },
+            enabled = vibeRequestText.isNotBlank(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(SafePhoneTestTags.HOME_VIBE_OPEN_GITHUB),
+        ) { Text(stringResource(R.string.vibe_coding_open_github)) }
     }
 }
 
