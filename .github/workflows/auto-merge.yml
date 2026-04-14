@@ -1,9 +1,9 @@
-# Merges pull requests opened by the Copilot coding agent after "Android CI" succeeds.
+# Merges any pull request after "Android CI" succeeds.
 # Branch protection: if merges are blocked (required reviewers), add repository secret
 # COPILOT_MERGE_PAT — a fine-grained PAT with Contents and Pull requests (write), or
 # classic PAT with repo scope — and relax or bypass rules as appropriate for your org.
 
-name: Copilot auto-merge
+name: Auto-merge on CI pass
 
 on:
   workflow_run:
@@ -16,7 +16,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  merge-copilot-pr:
+  auto-merge-pr:
     runs-on: ubuntu-latest
     if: github.event.workflow_run.conclusion == 'success'
     steps:
@@ -57,12 +57,6 @@ jobs:
                 pull_number: num,
               });
               if (pr.state !== 'open' || pr.merged) {
-                continue;
-              }
-              const login = pr.user?.login || '';
-              // Only the official Copilot coding agent user (do not match head ref `copilot/…` — anyone could name a branch that).
-              if (login !== 'copilot-swe-agent[bot]') {
-                core.info(`PR #${num} author is ${login}, not copilot-swe-agent[bot]; skipping.`);
                 continue;
               }
               if (!mergeableBases.has(pr.base.ref)) {
