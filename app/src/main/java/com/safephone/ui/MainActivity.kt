@@ -211,7 +211,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     composable("domains") {
-                        FeatureScaffold(nav, "Domain rules") { padding ->
+                        FeatureScaffold(nav, "Block websites") { padding ->
                             DomainListRoute(app, Modifier.padding(padding))
                         }
                     }
@@ -429,7 +429,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
         }
     val destinations = listOf(
         HomeDestination("blocked", "Blocked apps", "Always blocked when enforcing", Icons.Filled.Block),
-        HomeDestination("domains", "Domain rules", "Block sites in the browser", Icons.Outlined.Language),
+        HomeDestination("domains", "Block websites", "Block sites in the browser", Icons.Outlined.Language),
         HomeDestination("budgets", "Daily budgets", "Per-app time limits", Icons.Outlined.Timer),
         HomeDestination(
             "block_stats",
