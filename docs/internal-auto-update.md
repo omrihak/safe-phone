@@ -27,6 +27,7 @@ The app downloads the manifest from:
 | `KEY_ALIAS` | Signing key alias. |
 | `KEY_PASSWORD` | Key password. |
 | `COPILOT_ASSIGN_PAT` | Optional fine-grained PAT so [.github/workflows/vibe-coding-ota-hints.yml](../.github/workflows/vibe-coding-ota-hints.yml) can **assign Copilot coding agent** on new vibe issues (see [Automatic Copilot assignment](#automatic-copilot-assignment)). |
+| `COPILOT_MERGE_PAT` | Optional fine-grained PAT used by [.github/workflows/copilot-auto-merge.yml](../.github/workflows/copilot-auto-merge.yml) to **auto-merge Copilot PRs** after Android CI passes (see [Automatic Copilot PR merge](#automatic-copilot-pr-merge)). If omitted the workflow falls back to `GITHUB_TOKEN`, which may be blocked by branch protection rules. |
 
 No object-storage or `INTERNAL_UPDATE_PUBLIC_BASE_URL` secret is required when using GitHub Releases.
 
@@ -135,8 +136,34 @@ GitHub’s API often **does not** treat the default `GITHUB_TOKEN` as sufficient
 
 Restrict the token to this repository, then add it as repository secret **`COPILOT_ASSIGN_PAT`**.
 
-The workflow uses that token (when non-empty) to call the REST API: assignee **`copilot-swe-agent[bot]`** plus `agent_assignment` targeting this repo and the **default branch** (usually `main`). Copilot opens a PR; **merging still requires your normal review process** (and GitHub may require a reviewer who is not only the issue author).
+The workflow uses that token (when non-empty) to call the REST API: assignee **`copilot-swe-agent[bot]`** plus `agent_assignment` targeting this repo and the **default branch** (usually `main`). Copilot opens a PR; the PR is then **automatically merged** by the auto-merge workflow once Android CI passes (see [Automatic Copilot PR merge](#automatic-copilot-pr-merge)).
 
 If assignment fails (missing PAT, Copilot not enabled for the repo/org, etc.), the workflow posts a short comment with troubleshooting steps.
 
 **Requirements on GitHub**: Copilot **coding agent** / cloud agent must be allowed for the repository and your plan. If assignees do not list Copilot, see GitHub’s docs for enabling the agent on the repo.
+
+## Automatic Copilot PR merge
+
+Workflow: [.github/workflows/copilot-auto-merge.yml](../.github/workflows/copilot-auto-merge.yml)
+
+After the **Android CI** workflow completes successfully on a pull request, this workflow automatically **squash-merges** the PR if:
+
+- The PR was opened by **`copilot-swe-agent[bot]`** (the official Copilot coding agent).
+- The PR targets the default branch (`main` / `master`).
+- The PR comes from the same repository (forks are skipped for safety).
+
+This means issues submitted via the **Vibe coding** card (or any issue assigned to Copilot) result in a fully automatic end-to-end flow: issue → Copilot PR → CI passes → auto-merge — no manual review step required.
+
+> **Note**: Auto-merging skips human code review. For this repository that is an intentional trade-off (rapid iteration via vibe coding). If you ever need a manual review for a specific Copilot PR, close the PR and re-open it under a different author account, or temporarily disable this workflow.
+
+### Repository secret `COPILOT_MERGE_PAT`
+
+If your repository has **branch protection rules** that block merges (e.g. required reviewers or required status checks that `GITHUB_TOKEN` cannot bypass), create an additional **fine-grained personal access token**:
+
+| Permission     | Access          |
+|----------------|-----------------|
+| Metadata       | Read            |
+| Contents       | Read and write  |
+| Pull requests  | Read and write  |
+
+Restrict the token to this repository, then add it as repository secret **`COPILOT_MERGE_PAT`**. The workflow prefers this token over the default `GITHUB_TOKEN` when the secret is non-empty.
