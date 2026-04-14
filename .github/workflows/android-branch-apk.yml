@@ -2,8 +2,9 @@ name: Android internal APK (branch)
 
 on:
   push:
-    branches-ignore:
-      - "dependabot/**"
+    branches:
+      - main
+      - master
 
 concurrency:
   group: internal-apk-${{ github.ref }}

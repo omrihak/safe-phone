@@ -1,0 +1,83 @@
+# Merges pull requests opened by the Copilot coding agent after "Android CI" succeeds.
+# Branch protection: if merges are blocked (required reviewers), add repository secret
+# COPILOT_MERGE_PAT — a fine-grained PAT with Contents and Pull requests (write), or
+# classic PAT with repo scope — and relax or bypass rules as appropriate for your org.
+
+name: Copilot auto-merge
+
+on:
+  workflow_run:
+    workflows: ["Android CI"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge-copilot-pr:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.COPILOT_MERGE_PAT != '' && secrets.COPILOT_MERGE_PAT || github.token }}
+          script: |
+            const run = context.payload.workflow_run;
+            if (run.event !== 'pull_request') {
+              core.info('CI was not triggered by a pull_request; skipping.');
+              return;
+            }
+            const headFull = run.head_repository?.full_name;
+            const repoFull = run.repository?.full_name;
+            if (!headFull || headFull !== repoFull) {
+              core.info('Fork or missing head repo; skipping auto-merge.');
+              return;
+            }
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            let prNumbers = (run.pull_requests || []).map((p) => p.number);
+            if (prNumbers.length === 0) {
+              const { data: openPrs } = await github.rest.pulls.list({
+                owner,
+                repo,
+                state: 'open',
+                per_page: 100,
+              });
+              prNumbers = openPrs.filter((p) => p.head.sha === run.head_sha).map((p) => p.number);
+            }
+            const defaultBranch =
+              context.payload.repository?.default_branch || 'main';
+            const mergeableBases = new Set([defaultBranch, 'main', 'master']);
+            for (const num of prNumbers) {
+              const { data: pr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: num,
+              });
+              if (pr.state !== 'open' || pr.merged) {
+                continue;
+              }
+              const login = pr.user?.login || '';
+              // Only the official Copilot coding agent user (do not match head ref `copilot/…` — anyone could name a branch that).
+              if (login !== 'copilot-swe-agent[bot]') {
+                core.info(`PR #${num} author is ${login}, not copilot-swe-agent[bot]; skipping.`);
+                continue;
+              }
+              if (!mergeableBases.has(pr.base.ref)) {
+                core.info(`PR #${num} targets ${pr.base.ref}; skipping.`);
+                continue;
+              }
+              try {
+                await github.rest.pulls.merge({
+                  owner,
+                  repo,
+                  pull_number: num,
+                  merge_method: 'squash',
+                });
+                core.info(`Merged PR #${num} into ${pr.base.ref}.`);
+              } catch (e) {
+                core.warning(`Could not merge PR #${num}: ${e.message}`);
+              }
+            }

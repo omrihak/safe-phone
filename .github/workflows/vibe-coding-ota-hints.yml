@@ -24,8 +24,8 @@ jobs:
             const body = [
               '### Internal OTA path',
               '',
-              `- Merge or push the implementation to **the same git branch** your internal APK uses (\`safephone.internalUpdateTrackRef\` → GitHub release tag \`internal-<sanitized-branch>\`).`,
-              `- Each push runs the workflow \`.github/workflows/android-branch-apk.yml\` and publishes a new signed APK plus \`manifest.json\`; the internal app flavor checks GitHub Releases when \`versionCode\` increases.`,
+              `- Merge or push the implementation to **\`${defaultBranch}\`** (or the branch you set in \`safephone.internalUpdateTrackRef\`; release tag is \`internal-<sanitized-branch>\`).`,
+              `- Each push to **\`${defaultBranch}\`** (or \`master\`) runs \`.github/workflows/android-branch-apk.yml\` and publishes a signed APK plus \`manifest.json\`; feature branches and Copilot PR branches do not trigger internal APK builds.`,
               '- **Copilot coding agent** is assigned automatically when repository secret \`COPILOT_ASSIGN_PAT\` is set (see [docs/internal-auto-update.md](https://github.com/' + repo + '/blob/' + defaultBranch + '/docs/internal-auto-update.md#automatic-copilot-assignment)).',
               '',
               `Docs: [docs/internal-auto-update.md](https://github.com/${repo}/blob/${defaultBranch}/docs/internal-auto-update.md) (includes **Vibe coding** alignment).`,
