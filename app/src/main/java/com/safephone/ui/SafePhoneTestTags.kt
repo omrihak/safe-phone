@@ -30,6 +30,7 @@ object SafePhoneTestTags {
     const val BLOCKED_PACKAGE_FIELD = "blocked_package_field"
     const val BLOCKED_ADD = "blocked_add"
     const val BLOCKED_REMOVE_PREFIX = "blocked_remove_"
+    const val SOCIAL_MEDIA_CATEGORY_TOGGLE = "social_media_category_toggle"
     const val DOMAIN_PATTERN_FIELD = "domain_pattern_field"
     const val DOMAIN_ADD = "domain_add"
     const val DOMAIN_REMOVE_PREFIX = "domain_remove_"
