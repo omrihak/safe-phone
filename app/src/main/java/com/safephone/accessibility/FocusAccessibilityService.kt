@@ -61,7 +61,8 @@ class FocusAccessibilityService : AccessibilityService() {
             // Tab search / switcher UIs often show "Search tabs" (or similar) in the real URL bar while
             // listing other tabs' URLs in the tree. Scanning the tree would treat a background tab as active.
             if (urlBar.foundToolbarUrlField) return null
-            return scanTextForHost(root, maxNodes = 400)
+            // Do not walk page content: embedded links/iframes would masquerade as the top-level URL.
+            return null
         }
 
         private data class UrlBarLookup(val host: String?, val foundToolbarUrlField: Boolean)
@@ -88,8 +89,6 @@ class FocusAccessibilityService : AccessibilityService() {
             return UrlBarLookup(null, true)
         }
 
-        private var nodeScanCount = 0
-
         private fun collectByViewId(node: AccessibilityNodeInfo, idSubstr: String, out: MutableList<AccessibilityNodeInfo>, limit: Int) {
             if (out.size >= limit) return
             val id = node.viewIdResourceName
@@ -104,35 +103,6 @@ class FocusAccessibilityService : AccessibilityService() {
                     c.recycle()
                 }
             }
-        }
-
-        private fun scanTextForHost(root: AccessibilityNodeInfo, maxNodes: Int): String? {
-            nodeScanCount = 0
-            return walk(root, maxNodes)
-        }
-
-        private fun walk(node: AccessibilityNodeInfo, maxNodes: Int): String? {
-            if (nodeScanCount++ > maxNodes) return null
-            val t = node.text?.toString()
-            if (!t.isNullOrBlank()) {
-                val h = hostFromText(t)
-                if (h != null) return h
-            }
-            val d = node.contentDescription?.toString()
-            if (!d.isNullOrBlank()) {
-                val h = hostFromText(d)
-                if (h != null) return h
-            }
-            for (i in 0 until node.childCount) {
-                val c = node.getChild(i) ?: continue
-                try {
-                    val h = walk(c, maxNodes)
-                    if (h != null) return h
-                } finally {
-                    c.recycle()
-                }
-            }
-            return null
         }
 
         private fun hostFromText(text: String): String? {

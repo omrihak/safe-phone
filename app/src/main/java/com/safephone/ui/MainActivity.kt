@@ -103,6 +103,7 @@ import androidx.navigation.compose.rememberNavController
 import com.safephone.BreakTimeFormatter
 import com.safephone.BuildConfig
 import com.safephone.R
+import com.safephone.update.InternalUpdateScheduler
 import com.safephone.SafePhoneApp
 import com.safephone.data.AppBudgetEntity
 import com.safephone.data.BlockStatsAggregateRow
@@ -243,6 +244,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        InternalUpdateScheduler.enqueueSessionCheck(this)
     }
 }
 

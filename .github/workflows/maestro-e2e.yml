@@ -21,7 +21,7 @@ jobs:
           arch: x86_64
           target: google_apis
           script: |
-            ./gradlew :app:installDebug --no-daemon
+            ./gradlew :app:installStandardDebug --no-daemon
             ./scripts/e2e-adb-prep.sh
             curl -Ls "https://get.maestro.mobile.dev" | bash
             export PATH="$PATH:$HOME/.maestro/bin"

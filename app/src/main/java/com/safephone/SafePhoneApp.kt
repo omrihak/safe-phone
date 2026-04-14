@@ -7,6 +7,7 @@ import com.safephone.data.seedDatabaseIfEmpty
 import com.safephone.service.CalendarWatcher
 import com.safephone.service.PolicyAssembler
 import com.safephone.service.UsageStatsRepository
+import com.safephone.update.InternalUpdateScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,5 +37,6 @@ class SafePhoneApp : Application() {
         appScope.launch(Dispatchers.IO) {
             seedDatabaseIfEmpty(database)
         }
+        InternalUpdateScheduler.scheduleIfNeeded(this)
     }
 }

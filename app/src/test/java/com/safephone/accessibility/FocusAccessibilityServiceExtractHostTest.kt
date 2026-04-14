@@ -34,19 +34,30 @@ class FocusAccessibilityServiceExtractHostTest {
     }
 
     @Test
-    fun noUrlBarField_fallsBackToTreeScan() {
+    fun noUrlBarField_doesNotScanPageForHost() {
         val root = AccessibilityNodeInfo.obtain()
         val body = AccessibilityNodeInfo.obtain()
         body.text = "https://page.example.org/path"
         Shadow.extract<ShadowAccessibilityNodeInfo>(root).addChild(body)
         try {
-            assertEquals(
-                "page.example.org",
-                FocusAccessibilityService.extractHost(root, "com.android.chrome"),
-            )
+            assertNull(FocusAccessibilityService.extractHost(root, "com.android.chrome"))
         } finally {
             root.recycle()
             body.recycle()
+        }
+    }
+
+    @Test
+    fun noUrlBarField_embeddedBlockedUrlInPage_doesNotYieldHost() {
+        val root = AccessibilityNodeInfo.obtain()
+        val article = AccessibilityNodeInfo.obtain()
+        article.text = "See https://blocked.example/track for more"
+        Shadow.extract<ShadowAccessibilityNodeInfo>(root).addChild(article)
+        try {
+            assertNull(FocusAccessibilityService.extractHost(root, "com.android.chrome"))
+        } finally {
+            root.recycle()
+            article.recycle()
         }
     }
 

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.safephone.data.FocusPreferences
+import com.safephone.update.InternalUpdateScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,7 +16,9 @@ class BootReceiver : BroadcastReceiver() {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         scope.launch(Dispatchers.IO) {
-            FocusEnforcementService.start(context.applicationContext)
+            val appCtx = context.applicationContext
+            FocusEnforcementService.start(appCtx)
+            InternalUpdateScheduler.scheduleIfNeeded(appCtx)
         }
     }
 }

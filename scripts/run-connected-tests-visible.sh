@@ -27,4 +27,4 @@ else
 fi
 
 echo "Running connected tests (UI will animate on the emulator)..."
-./gradlew :app:connectedDebugAndroidTest --no-daemon
+./gradlew :app:connectedStandardDebugAndroidTest --no-daemon

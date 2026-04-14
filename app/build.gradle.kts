@@ -1,3 +1,6 @@
+import java.io.File
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -18,6 +21,15 @@ fun org.gradle.api.Project.blockLandingUrlForBuildType(debug: Boolean): String {
 fun String.toBuildConfigStringLiteral(): String =
     '"' + replace("\\", "\\\\").replace("\"", "\\\"") + '"'
 
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
+val appVersionCode = (findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 1
+val appVersionName = (findProperty("appVersionName") as String?)?.trim().orEmpty().ifEmpty { "0.1.0" }
+
 android {
     namespace = "com.safephone"
     compileSdk = 35
@@ -26,8 +38,8 @@ android {
         applicationId = "com.safephone.focus"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments += mapOf("clearPackageData" to "true")
     }
@@ -35,6 +47,54 @@ android {
         @Suppress("DEPRECATION")
         execution = "ANDROID_TEST_ORCHESTRATOR"
         unitTests.isIncludeAndroidResources = true
+    }
+
+    flavorDimensions += "channel"
+    productFlavors {
+        create("standard") {
+            dimension = "channel"
+            isDefault = true
+            buildConfigField("boolean", "ENABLE_INTERNAL_AUTO_UPDATE", "false")
+            buildConfigField("String", "INTERNAL_UPDATE_BASE_URL", "\"\"")
+            buildConfigField("String", "INTERNAL_UPDATE_TRACK_REF", "\"\"")
+        }
+        create("internal") {
+            dimension = "channel"
+            val base = (findProperty("safephone.internalUpdateBaseUrl") as String?)?.trim().orEmpty()
+            val track = (findProperty("safephone.internalUpdateTrackRef") as String?)?.trim().orEmpty()
+            buildConfigField("boolean", "ENABLE_INTERNAL_AUTO_UPDATE", "true")
+            buildConfigField("String", "INTERNAL_UPDATE_BASE_URL", base.toBuildConfigStringLiteral())
+            buildConfigField("String", "INTERNAL_UPDATE_TRACK_REF", track.toBuildConfigStringLiteral())
+        }
+    }
+
+    signingConfigs {
+        create("upload") {
+            val ksFromEnv = System.getenv("KEYSTORE_FILE")?.trim().orEmpty()
+            val storeFilePath = when {
+                ksFromEnv.isNotEmpty() -> ksFromEnv
+                else -> keystoreProperties.getProperty("storeFile")?.trim().orEmpty()
+            }
+            val storePwd = System.getenv("KEYSTORE_PASSWORD")?.trim().orEmpty()
+                .ifEmpty { keystoreProperties.getProperty("storePassword")?.trim().orEmpty() }
+            val alias = System.getenv("KEY_ALIAS")?.trim().orEmpty()
+                .ifEmpty { keystoreProperties.getProperty("keyAlias")?.trim().orEmpty() }
+            val keyPwd = System.getenv("KEY_PASSWORD")?.trim().orEmpty()
+                .ifEmpty { keystoreProperties.getProperty("keyPassword")?.trim().orEmpty() }
+            if (storeFilePath.isNotEmpty() && storePwd.isNotEmpty() && alias.isNotEmpty() && keyPwd.isNotEmpty()) {
+                val f = if (File(storeFilePath).isAbsolute) {
+                    file(storeFilePath)
+                } else {
+                    rootProject.file(storeFilePath)
+                }
+                if (f.isFile) {
+                    storeFile = f
+                    storePassword = storePwd
+                    keyAlias = alias
+                    keyPassword = keyPwd
+                }
+            }
+        }
     }
 
     buildTypes {
@@ -56,6 +116,12 @@ android {
                 "BLOCK_LANDING_URL",
                 project.blockLandingUrlForBuildType(debug = false).toBuildConfigStringLiteral(),
             )
+            val upload = signingConfigs.getByName("upload")
+            signingConfig = if (upload.storeFile != null && upload.storeFile!!.exists()) {
+                upload
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {
@@ -104,6 +170,8 @@ dependencies {
 
     implementation("com.squareup.moshi:moshi:1.15.1")
     implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
+
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

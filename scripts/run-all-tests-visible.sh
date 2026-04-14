@@ -12,7 +12,7 @@ export PATH="$SDK/cmdline-tools/latest/bin:$SDK/platform-tools:$SDK/emulator:$PA
 AVD="${ANDROID_AVD_NAME:-SafePhoneTestAvd}"
 
 echo "=== JVM unit tests (Robolectric / Paparazzi / PolicyEngine) ==="
-./gradlew :app:testDebugUnitTest --no-daemon
+./gradlew :app:testStandardDebugUnitTest --no-daemon
 
 echo ""
 echo "=== Windowed emulator + instrumented tests ==="
@@ -33,8 +33,8 @@ for _ in $(seq 1 120); do
 done
 adb shell getprop sys.boot_completed | grep -q 1 || { echo "Emulator did not finish booting"; exit 1; }
 
-echo "Running connectedDebugAndroidTest (watch the emulator)..."
-./gradlew :app:connectedDebugAndroidTest --no-daemon
+echo "Running connectedStandardDebugAndroidTest (watch the emulator)..."
+./gradlew :app:connectedStandardDebugAndroidTest --no-daemon
 
 echo ""
 echo "All tests finished."

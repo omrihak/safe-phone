@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -39,6 +40,13 @@ class FocusPreferences(private val context: Context) {
      */
     val systemMonochromeAutomationEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_SYSTEM_MONOCHROME_AUTO] ?: true }
+
+    val partnerBlockAlertEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_PARTNER_BLOCK_ALERT] ?: false }
+    val partnerBlockAlertThreshold: Flow<Int> =
+        context.dataStore.data.map { it[KEY_PARTNER_BLOCK_THRESHOLD] ?: 5 }
+    val partnerAlertPhoneDigits: Flow<String> =
+        context.dataStore.data.map { it[KEY_PARTNER_ALERT_PHONE] ?: "" }
 
     suspend fun hasDaltonizerSnapshot(): Boolean =
         context.dataStore.data.map { it[KEY_DALTONIZER_SNAP] == true }.first()
@@ -92,6 +100,42 @@ class FocusPreferences(private val context: Context) {
         context.dataStore.edit { it[KEY_SYSTEM_MONOCHROME_AUTO] = v }
     }
 
+    suspend fun setPartnerBlockAlertEnabled(v: Boolean) {
+        context.dataStore.edit { it[KEY_PARTNER_BLOCK_ALERT] = v }
+    }
+
+    suspend fun setPartnerBlockAlertThreshold(v: Int) {
+        context.dataStore.edit { it[KEY_PARTNER_BLOCK_THRESHOLD] = v }
+    }
+
+    suspend fun setPartnerAlertPhoneDigits(digits: String) {
+        context.dataStore.edit { it[KEY_PARTNER_ALERT_PHONE] = digits }
+    }
+
+    /**
+     * Returns true the first time we alert for [kind]/[targetKey] on [dayEpochDay]; false on repeats.
+     */
+    suspend fun claimPartnerAlertForTarget(dayEpochDay: Long, kind: String, targetKey: String): Boolean {
+        val composite = "$kind\u0000$targetKey"
+        var claimed = false
+        context.dataStore.edit { prefs ->
+            val storedDay = prefs[KEY_PARTNER_CLAIM_DAY] ?: -1L
+            var set = prefs[KEY_PARTNER_CLAIM_SET] ?: emptySet()
+            if (storedDay != dayEpochDay) {
+                set = emptySet()
+                prefs[KEY_PARTNER_CLAIM_DAY] = dayEpochDay
+            }
+            if (composite in set) {
+                claimed = false
+                prefs[KEY_PARTNER_CLAIM_SET] = set
+            } else {
+                claimed = true
+                prefs[KEY_PARTNER_CLAIM_SET] = set + composite
+            }
+        }
+        return claimed
+    }
+
     suspend fun saveDaltonizerSnapshot(snapshot: DaltonizerSnapshot) {
         context.dataStore.edit { p ->
             p[KEY_DALTONIZER_SNAP] = true
@@ -139,5 +183,10 @@ class FocusPreferences(private val context: Context) {
         private val KEY_DALTONIZER_SNAP = booleanPreferencesKey("daltonizer_snapshot")
         private val KEY_DALTONIZER_PREV_ENABLED = intPreferencesKey("daltonizer_prev_enabled")
         private val KEY_DALTONIZER_PREV_MODE = intPreferencesKey("daltonizer_prev_mode")
+        private val KEY_PARTNER_BLOCK_ALERT = booleanPreferencesKey("partner_block_alert")
+        private val KEY_PARTNER_BLOCK_THRESHOLD = intPreferencesKey("partner_block_threshold")
+        private val KEY_PARTNER_ALERT_PHONE = stringPreferencesKey("partner_alert_phone")
+        private val KEY_PARTNER_CLAIM_DAY = longPreferencesKey("partner_claim_day")
+        private val KEY_PARTNER_CLAIM_SET = stringSetPreferencesKey("partner_claim_keys")
     }
 }

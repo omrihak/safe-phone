@@ -67,4 +67,16 @@
     <string name="partner_alert_notif_title_sms_failed">Partner alert — SMS failed</string>
     <string name="partner_alert_notif_text_sms_failed">Could not send SMS. Check the number and your signal.</string>
     <string name="partner_alert_notif_text_sms_failed_detail">SMS error: %1$s. Check signal, SIM, and that the number includes country code.</string>
+
+    <string name="internal_update_channel_progress">Internal updates (download)</string>
+    <string name="internal_update_channel_result">Internal updates</string>
+    <string name="internal_update_progress_title">SafePhone update</string>
+    <string name="internal_update_progress_check">Checking for a newer build…</string>
+    <string name="internal_update_progress_download">Downloading update…</string>
+    <string name="internal_update_notif_installed_title">Update finished</string>
+    <string name="internal_update_notif_installed_text">The new version was installed. You can keep using the app.</string>
+    <string name="internal_update_notif_action_title">Finish installing update</string>
+    <string name="internal_update_notif_action_text">Complete the system prompt to install the new build.</string>
+    <string name="internal_update_notif_failed_title">Update failed</string>
+    <string name="internal_update_notif_failed_text">Could not install the update. %1$s</string>
 </resources>

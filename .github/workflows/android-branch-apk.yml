@@ -1,0 +1,113 @@
+name: Android internal APK (branch)
+
+on:
+  push:
+    branches-ignore:
+      - "dependabot/**"
+
+concurrency:
+  group: internal-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Public GitHub URL for OTA (manifest + release assets)
+        id: ghurl
+        run: |
+          base="${GITHUB_SERVER_URL%/}/${GITHUB_REPOSITORY}"
+          echo "public_base=${base}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Sanitize branch ref for release tag suffix
+        id: track
+        run: |
+          ref="${GITHUB_REF_NAME}"
+          sanitized=$(printf '%s' "$ref" | tr -c 'a-zA-Z0-9._-' '-' | cut -c1-120)
+          echo "sanitized=${sanitized}" >> "$GITHUB_OUTPUT"
+          echo "tag=internal-${sanitized}" >> "$GITHUB_OUTPUT"
+
+      - name: Decode release keystore (optional)
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "ksfile=" >> "$GITHUB_OUTPUT"
+            echo "No KEYSTORE_BASE64; release will be signed with the default debug keystore (OTA upgrades require a stable release keystore)." >&2
+            exit 0
+          fi
+          out="${RUNNER_TEMP}/upload.keystore"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$out"
+          echo "ksfile=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Build internal release APK
+        env:
+          KEYSTORE_FILE: ${{ steps.keystore.outputs.ksfile }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew :app:assembleInternalRelease --no-daemon \
+            -PappVersionCode="${{ github.run_number }}" \
+            -PappVersionName="${{ github.ref_name }}-${{ github.run_number }}" \
+            -Psafephone.internalUpdateBaseUrl="${{ steps.ghurl.outputs.public_base }}" \
+            -Psafephone.internalUpdateTrackRef="${{ steps.track.outputs.sanitized }}"
+
+      - name: Compute checksum and write manifest
+        id: manifest
+        env:
+          PUBLIC_BASE: ${{ steps.ghurl.outputs.public_base }}
+          TAG: ${{ steps.track.outputs.tag }}
+          TRACK: ${{ steps.track.outputs.sanitized }}
+        run: |
+          apk="app/build/outputs/apk/internal/release/app-internal-release.apk"
+          test -f "$apk"
+          sum=$(sha256sum "$apk" | awk '{print $1}')
+          base="${PUBLIC_BASE%/}"
+          apk_url="${base}/releases/download/${TAG}/app-internal-release.apk"
+          manifest_path="${RUNNER_TEMP}/manifest.json"
+          jq -n \
+            --argjson versionCode "${{ github.run_number }}" \
+            --arg versionName "${{ github.ref_name }}-${{ github.run_number }}" \
+            --arg apkUrl "$apk_url" \
+            --arg sha256 "$sum" \
+            '{versionCode: $versionCode, versionName: $versionName, apkUrl: $apkUrl, sha256: $sha256}' \
+            > "$manifest_path"
+          echo "sha256=$sum" >> "$GITHUB_OUTPUT"
+          echo "manifest_path=$manifest_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK and manifest as workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: internal-apk-${{ steps.track.outputs.sanitized }}-${{ github.run_number }}
+          path: |
+            app/build/outputs/apk/internal/release/app-internal-release.apk
+            ${{ steps.manifest.outputs.manifest_path }}
+
+      - name: Publish to GitHub Release (reusable tag per branch)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.track.outputs.tag }}"
+          apk="app/build/outputs/apk/internal/release/app-internal-release.apk"
+          manifest="${{ steps.manifest.outputs.manifest_path }}"
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "Internal: ${{ github.ref_name }}" \
+              --notes "Automated internal APK for \`${{ github.ref_name }}\`. CI reuses tag \`$TAG\`; assets are replaced on each push." \
+              --prerelease
+          fi
+          gh release upload "$TAG" "$apk" "$manifest" --clobber --repo "${{ github.repository }}"
