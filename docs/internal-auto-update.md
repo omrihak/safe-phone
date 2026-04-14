@@ -24,6 +24,7 @@ The app downloads the manifest from:
 | `KEYSTORE_PASSWORD` | Keystore password. |
 | `KEY_ALIAS` | Signing key alias. |
 | `KEY_PASSWORD` | Key password. |
+| `COPILOT_ASSIGN_PAT` | Optional fine-grained PAT so [.github/workflows/vibe-coding-ota-hints.yml](../.github/workflows/vibe-coding-ota-hints.yml) can **assign Copilot coding agent** on new vibe issues (see [Automatic Copilot assignment](#automatic-copilot-assignment)). |
 
 No object-storage or `INTERNAL_UPDATE_PUBLIC_BASE_URL` secret is required when using GitHub Releases.
 
@@ -90,3 +91,32 @@ The **internal** home screen can show a **Vibe coding** card when `BuildConfig` 
 - **Local standard builds**: set `safephone.githubIssueOwner` and `safephone.githubIssueRepo` in `gradle.properties` (see comments there), or use an **internal** Gradle command that already passes `safephone.internalUpdateBaseUrl`.
 
 Submitting **Open in GitHub** creates a labeled issue; [.github/workflows/vibe-coding-ota-hints.yml](../.github/workflows/vibe-coding-ota-hints.yml) comments with OTA steps. Implement the feature (e.g. Copilot coding agent or locally), then **push to the same branch** encoded in `-Psafephone.internalUpdateTrackRef=…` for your install so the next APK lands on the matching `internal-…` release and the in-app updater can install it.
+
+## Automatic Copilot assignment
+
+The same workflow **assigns [GitHub Copilot coding agent](https://docs.github.com/en/copilot/using-github-copilot/coding-agent/using-copilot-to-work-on-an-issue)** when an issue is opened and either:
+
+- the body contains `Submitted from SafePhone (app):`, or  
+- the issue has the **`vibe-coding`** label (including the feature request template).
+
+**Opt out** for a specific issue: add the label **`no-copilot`** (workflow skips assignment if that label is present).
+
+### Repository secret `COPILOT_ASSIGN_PAT`
+
+GitHub’s API often **does not** treat the default `GITHUB_TOKEN` as sufficient to start the coding agent. Create a **fine-grained personal access token** (your user → **Settings → Developer settings → Fine-grained tokens**):
+
+| Permission        | Access            |
+|-------------------|-------------------|
+| Metadata          | Read              |
+| Actions           | Read and write    |
+| Contents          | Read and write    |
+| Issues            | Read and write    |
+| Pull requests     | Read and write    |
+
+Restrict the token to this repository, then add it as repository secret **`COPILOT_ASSIGN_PAT`**.
+
+The workflow uses that token (when non-empty) to call the REST API: assignee **`copilot-swe-agent[bot]`** plus `agent_assignment` targeting this repo and the **default branch** (usually `main`). Copilot opens a PR; **merging still requires your normal review process** (and GitHub may require a reviewer who is not only the issue author).
+
+If assignment fails (missing PAT, Copilot not enabled for the repo/org, etc.), the workflow posts a short comment with troubleshooting steps.
+
+**Requirements on GitHub**: Copilot **coding agent** / cloud agent must be allowed for the repository and your plan. If assignees do not list Copilot, see GitHub’s docs for enabling the agent on the repo.

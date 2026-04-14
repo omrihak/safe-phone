@@ -7,7 +7,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        After you submit, **Vibe coding — OTA hints** (GitHub Action) will comment with the internal APK / OTA steps. Use **GitHub Copilot coding agent** on this issue if you have it, or implement locally and merge to **the git branch your internal build tracks** (same ref as `safephone.internalUpdateTrackRef`).
+        After you submit, **Vibe coding — OTA hints** (GitHub Action) will comment with the internal APK / OTA steps.
+
+        **Copilot coding agent** is assigned automatically when the repository secret `COPILOT_ASSIGN_PAT` is configured (details in **docs/internal-auto-update.md** on the default branch, section *Automatic Copilot assignment*). Add the label **`no-copilot`** to skip auto-assignment.
+
+        Otherwise implement locally and merge to **the git branch your internal build tracks** (same ref as `safephone.internalUpdateTrackRef`).
   - type: textarea
     id: description
     attributes:

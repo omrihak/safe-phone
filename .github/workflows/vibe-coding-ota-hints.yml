@@ -1,4 +1,4 @@
-name: Vibe coding — OTA hints
+name: Vibe coding — OTA hints + Copilot assign
 
 on:
   issues:
@@ -6,6 +6,8 @@ on:
 
 permissions:
   issues: write
+  pull-requests: write
+  contents: write
 
 jobs:
   comment:
@@ -24,13 +26,86 @@ jobs:
               '',
               `- Merge or push the implementation to **the same git branch** your internal APK uses (\`safephone.internalUpdateTrackRef\` → GitHub release tag \`internal-<sanitized-branch>\`).`,
               `- Each push runs the workflow \`.github/workflows/android-branch-apk.yml\` and publishes a new signed APK plus \`manifest.json\`; the internal app flavor checks GitHub Releases when \`versionCode\` increases.`,
-              '- Optional: use **GitHub Copilot coding agent** on this issue, or your own agent, then merge to that branch.',
+              '- **Copilot coding agent** is assigned automatically when repository secret \`COPILOT_ASSIGN_PAT\` is set (see [docs/internal-auto-update.md](https://github.com/' + repo + '/blob/' + defaultBranch + '/docs/internal-auto-update.md#automatic-copilot-assignment)).',
               '',
               `Docs: [docs/internal-auto-update.md](https://github.com/${repo}/blob/${defaultBranch}/docs/internal-auto-update.md) (includes **Vibe coding** alignment).`,
             ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: context.payload.issue.number,
               body,
             });
+
+  assign-copilot:
+    runs-on: ubuntu-latest
+    if: |
+      !contains(join(github.event.issue.labels.*.name, ','), 'no-copilot') &&
+      (
+        contains(github.event.issue.body || '', 'Submitted from SafePhone (app):') ||
+        contains(join(github.event.issue.labels.*.name, ','), 'vibe-coding')
+      )
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.COPILOT_ASSIGN_PAT != '' && secrets.COPILOT_ASSIGN_PAT || secrets.GITHUB_TOKEN }}
+          script: |
+            const defaultBranch = context.payload.repository.default_branch || 'main';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const repoFull = `${owner}/${repo}`;
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+            const custom = [
+              'You are assigned from a SafePhone / vibe-coding issue. Use the title and description as the source of truth.',
+              'Prefer small commits. Run checks that exist in the repo (e.g. `./gradlew :app:testStandardDebugUnitTest`).',
+              'Open a PR against the base branch below when done.',
+              '---',
+              `Title: ${issue.title}`,
+              '',
+              body.slice(0, 12000),
+            ].join('\n');
+            try {
+              await github.request('POST /repos/{owner}/{repo}/issues/{issue_number}/assignees', {
+                owner,
+                repo,
+                issue_number: issue.number,
+                headers: {
+                  'X-GitHub-Api-Version': '2022-11-28',
+                },
+                data: {
+                  assignees: ['copilot-swe-agent[bot]'],
+                  agent_assignment: {
+                    target_repo: repoFull,
+                    base_branch: defaultBranch,
+                    custom_instructions: custom,
+                    custom_agent: '',
+                    model: '',
+                  },
+                },
+              });
+            } catch (e) {
+              core.warning(`Copilot assign failed: ${e.message}`);
+              const msg = [
+                '### Automatic Copilot assignment did not start',
+                '',
+                `**${String(e.message).slice(0, 400)}**`,
+                '',
+                'GitHub’s API often requires a **fine-grained personal access token** (not the default Actions \`GITHUB_TOKEN\`) to assign **Copilot coding agent**.',
+                '',
+                '1. Create a **fine-grained PAT** with *Read* metadata and *Read and write* on **Actions**, **Contents**, **Issues**, and **Pull requests** for this repository.',
+                '2. Add it as repository secret **`COPILOT_ASSIGN_PAT**`.',
+                '',
+                'To skip auto-assignment on specific issues, add the label **`no-copilot`** before or after opening.',
+                '',
+                'Manual option: assign **Copilot** from the issue sidebar.',
+                '',
+                'Docs: [Assigning an issue to Copilot via the API](https://docs.github.com/en/copilot/using-github-copilot/coding-agent/using-copilot-to-work-on-an-issue#assigning-an-issue-to-copilot-via-the-github-api)',
+              ].join('\n');
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue.number,
+                body: msg,
+              });
+            }
