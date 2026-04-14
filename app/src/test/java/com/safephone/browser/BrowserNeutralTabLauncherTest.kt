@@ -1,11 +1,12 @@
 package com.safephone.browser
 
+import android.app.Activity
 import android.net.Uri
-import androidx.test.core.app.ApplicationProvider
 import com.safephone.BuildConfig
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
@@ -49,7 +50,8 @@ class BrowserNeutralTabLauncherTest {
 
     @Test
     fun uri_candidates_matches_build_config_order() {
-        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        // Activity context avoids ApplicationProvider + Paparazzi/other tests fighting over the same zip FS.
+        val ctx = Robolectric.buildActivity(Activity::class.java).setup().get()
         val fromBuild = BrowserNeutralTabLauncher.orderedBlockExitUriSpecs(BuildConfig.BLOCK_LANDING_URL)
         assertEquals(fromBuild, BrowserNeutralTabLauncher.uriCandidates(ctx, "com.android.chrome"))
     }

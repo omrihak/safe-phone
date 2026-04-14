@@ -1,0 +1,17 @@
+name: Vibe coding feature
+description: Request a SafePhone change from the web; pairs with the in-app “Vibe coding” card when labels match.
+title: "[Vibe] "
+labels:
+  - vibe-coding
+body:
+  - type: markdown
+    attributes:
+      value: |
+        After you submit, **Vibe coding — OTA hints** (GitHub Action) will comment with the internal APK / OTA steps. Use **GitHub Copilot coding agent** on this issue if you have it, or implement locally and merge to **the git branch your internal build tracks** (same ref as `safephone.internalUpdateTrackRef`).
+  - type: textarea
+    id: description
+    attributes:
+      label: What should change?
+      description: Screens, behavior, edge cases, and acceptance checks.
+    validations:
+      required: true

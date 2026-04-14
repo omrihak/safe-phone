@@ -1,0 +1,36 @@
+name: Vibe coding — OTA hints
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.issue.body || '', 'Submitted from SafePhone (app):') ||
+      contains(join(github.event.issue.labels.*.name, ','), 'vibe-coding')
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const defaultBranch = context.payload.repository.default_branch || 'main';
+            const repo = `${context.repo.owner}/${context.repo.repo}`;
+            const body = [
+              '### Internal OTA path',
+              '',
+              `- Merge or push the implementation to **the same git branch** your internal APK uses (\`safephone.internalUpdateTrackRef\` → GitHub release tag \`internal-<sanitized-branch>\`).`,
+              `- Each push runs the workflow \`.github/workflows/android-branch-apk.yml\` and publishes a new signed APK plus \`manifest.json\`; the internal app flavor checks GitHub Releases when \`versionCode\` increases.`,
+              '- Optional: use **GitHub Copilot coding agent** on this issue, or your own agent, then merge to that branch.',
+              '',
+              `Docs: [docs/internal-auto-update.md](https://github.com/${repo}/blob/${defaultBranch}/docs/internal-auto-update.md) (includes **Vibe coding** alignment).`,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

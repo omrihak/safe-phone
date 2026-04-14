@@ -81,3 +81,12 @@ After adding flavors, local and CI commands use the **standard** variant, for ex
 - `./gradlew :app:testStandardDebugUnitTest`
 - `./gradlew :app:connectedStandardDebugAndroidTest`
 - `./gradlew :app:installStandardDebug`
+
+## Vibe coding (app → GitHub → OTA)
+
+The **internal** home screen can show a **Vibe coding** card when `BuildConfig` knows your GitHub repo:
+
+- **CI internal builds**: `safephone.internalUpdateBaseUrl` is set to `https://github.com/<owner>/<repo>` in [.github/workflows/android-branch-apk.yml](../.github/workflows/android-branch-apk.yml), so `GITHUB_ISSUES_OWNER` / `GITHUB_ISSUES_REPO` are derived automatically and the card appears.
+- **Local standard builds**: set `safephone.githubIssueOwner` and `safephone.githubIssueRepo` in `gradle.properties` (see comments there), or use an **internal** Gradle command that already passes `safephone.internalUpdateBaseUrl`.
+
+Submitting **Open in GitHub** creates a labeled issue; [.github/workflows/vibe-coding-ota-hints.yml](../.github/workflows/vibe-coding-ota-hints.yml) comments with OTA steps. Implement the feature (e.g. Copilot coding agent or locally), then **push to the same branch** encoded in `-Psafephone.internalUpdateTrackRef=…` for your install so the next APK lands on the matching `internal-…` release and the in-app updater can install it.

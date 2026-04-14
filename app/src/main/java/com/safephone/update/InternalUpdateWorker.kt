@@ -162,7 +162,9 @@ class InternalUpdateWorker(
     private fun installWithSession(context: Context, apk: File): Boolean {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-            setAppPackageName(context.packageName)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                setAppPackageName(context.packageName)
+            }
         }
         val sessionId = installer.createSession(params)
         val session = installer.openSession(sessionId)

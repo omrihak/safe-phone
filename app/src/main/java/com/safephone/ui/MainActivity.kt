@@ -51,6 +51,7 @@ import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Coffee
 import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -109,6 +110,7 @@ import com.safephone.data.AppBudgetEntity
 import com.safephone.data.BlockStatsAggregateRow
 import com.safephone.data.BlockedAppEntity
 import com.safephone.data.DomainRuleEntity
+import com.safephone.github.VibeCodingGitHub
 import com.safephone.export.RulesExporter
 import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
@@ -544,6 +546,81 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                             enabled = canStartBreakNow,
                             modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.HOME_START_BREAK),
                         ) { Text("Start break (${breakPolicy?.breakDurationMinutes ?: 10} min)") }
+                    }
+                }
+            }
+            if (BuildConfig.GITHUB_ISSUES_OWNER.isNotEmpty() && BuildConfig.GITHUB_ISSUES_REPO.isNotEmpty()) {
+                item(key = "vibe_coding") {
+                    var vibeRequestText by remember { mutableStateOf("") }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                    ) {
+                        Column(
+                            Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(26.dp),
+                                )
+                                Text(
+                                    stringResource(R.string.vibe_coding_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                            Text(
+                                stringResource(R.string.vibe_coding_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            OutlinedTextField(
+                                value = vibeRequestText,
+                                onValueChange = { vibeRequestText = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag(SafePhoneTestTags.HOME_VIBE_REQUEST_FIELD),
+                                label = { Text(stringResource(R.string.vibe_coding_field_label)) },
+                                minLines = 3,
+                                maxLines = 8,
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.Sentences,
+                                ),
+                            )
+                            FilledTonalButton(
+                                onClick = {
+                                    val uri = VibeCodingGitHub.newIssueUri(
+                                        BuildConfig.GITHUB_ISSUES_OWNER,
+                                        BuildConfig.GITHUB_ISSUES_REPO,
+                                        vibeRequestText,
+                                    )
+                                    if (uri != null) {
+                                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                                        if (intent.resolveActivity(context.packageManager) != null) {
+                                            context.startActivity(intent)
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                R.string.vibe_coding_no_browser,
+                                                Toast.LENGTH_LONG,
+                                            ).show()
+                                        }
+                                    }
+                                },
+                                enabled = vibeRequestText.isNotBlank(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag(SafePhoneTestTags.HOME_VIBE_OPEN_GITHUB),
+                            ) { Text(stringResource(R.string.vibe_coding_open_github)) }
+                        }
                     }
                 }
             }

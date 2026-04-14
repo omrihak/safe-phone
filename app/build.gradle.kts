@@ -21,6 +21,23 @@ fun org.gradle.api.Project.blockLandingUrlForBuildType(debug: Boolean): String {
 fun String.toBuildConfigStringLiteral(): String =
     '"' + replace("\\", "\\\\").replace("\"", "\\\"") + '"'
 
+/** Owner/repo for GitHub "new issue" links (vibe coding). Explicit gradle props override parsing internalUpdateBaseUrl. */
+fun org.gradle.api.Project.githubIssuesOwnerRepo(): Pair<String, String> {
+    val explicitOwner = (findProperty("safephone.githubIssueOwner") as String?)?.trim().orEmpty()
+    val explicitRepo = (findProperty("safephone.githubIssueRepo") as String?)?.trim().orEmpty()
+    if (explicitOwner.isNotEmpty() && explicitRepo.isNotEmpty()) {
+        return explicitOwner to explicitRepo
+    }
+    val base = (findProperty("safephone.internalUpdateBaseUrl") as String?)?.trim().orEmpty()
+    val m = Regex("""github\.com/([^/]+)/([^/?.#]+)""").find(base)
+    if (m != null) {
+        val owner = m.groupValues[1]
+        val repo = m.groupValues[2].removeSuffix(".git")
+        return owner to repo
+    }
+    return "" to ""
+}
+
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 if (keystorePropertiesFile.exists()) {
@@ -42,6 +59,9 @@ android {
         versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments += mapOf("clearPackageData" to "true")
+        val (ghIssuesOwner, ghIssuesRepo) = githubIssuesOwnerRepo()
+        buildConfigField("String", "GITHUB_ISSUES_OWNER", ghIssuesOwner.toBuildConfigStringLiteral())
+        buildConfigField("String", "GITHUB_ISSUES_REPO", ghIssuesRepo.toBuildConfigStringLiteral())
     }
     testOptions {
         @Suppress("DEPRECATION")
@@ -140,6 +160,11 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+}
+
+// Robolectric + Paparazzi can hit ZipFileSystemAlreadyExists when JVM forks run test classes in parallel.
+tasks.withType<Test>().configureEach {
+    maxParallelForks = 1
 }
 
 dependencies {

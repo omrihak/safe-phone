@@ -79,4 +79,10 @@
     <string name="internal_update_notif_action_text">Complete the system prompt to install the new build.</string>
     <string name="internal_update_notif_failed_title">Update failed</string>
     <string name="internal_update_notif_failed_text">Could not install the update. %1$s</string>
+
+    <string name="vibe_coding_title">Vibe coding</string>
+    <string name="vibe_coding_subtitle">Describe a change, then open GitHub to file an issue. After code merges to your internal branch, the usual internal APK workflow publishes an update.</string>
+    <string name="vibe_coding_field_label">Feature request</string>
+    <string name="vibe_coding_open_github">Open in GitHub</string>
+    <string name="vibe_coding_no_browser">No app can open this link. Install a browser or sign in to GitHub in a browser.</string>
 </resources>

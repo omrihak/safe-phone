@@ -49,6 +49,12 @@
             android:showOnLockScreen="true"
             android:theme="@style/Theme.SafePhone.Overlay" />
 
+        <!-- WorkManager's library manifest omits foregroundServiceType; API 34+ requires it when using ForegroundInfo with dataSync. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
         <service
             android:name=".service.FocusEnforcementService"
             android:exported="false"
