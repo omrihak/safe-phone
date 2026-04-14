@@ -6,4 +6,5 @@
 .idea/
 local.properties
 keystore.properties
+.secrets/
 .DS_Store

@@ -80,7 +80,7 @@ jobs:
                     base_branch: defaultBranch,
                     custom_instructions: custom,
                     custom_agent: '',
-                    model: '',
+                    model: 'auto',
                   },
                 },
               });
