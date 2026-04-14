@@ -1636,6 +1636,7 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
             label = { Text("Max breaks per day") },
             modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.BREAKS_MAX_FIELD),
             shape = RoundedCornerShape(12.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         )
         OutlinedTextField(
             dur,
@@ -1643,6 +1644,7 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
             label = { Text("Break length (minutes)") },
             modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.BREAKS_DURATION_FIELD),
             shape = RoundedCornerShape(12.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         )
         OutlinedTextField(
             gap,
@@ -1650,6 +1652,7 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
             label = { Text("Minimum gap between breaks (minutes)") },
             modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.BREAKS_GAP_FIELD),
             shape = RoundedCornerShape(12.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         )
         Button(
             onClick = {
