@@ -1202,7 +1202,7 @@ private fun SocialMediaCategoryCard(
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        "${items.size} entries — block all with one toggle",
+                        "${items.size} entries - block all with one toggle",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

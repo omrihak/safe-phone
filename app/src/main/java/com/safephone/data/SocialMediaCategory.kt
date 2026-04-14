@@ -27,7 +27,7 @@ object SocialMediaCategory {
         "com.facebook.katana",          // Facebook
         "com.instagram.android",        // Instagram
         "com.twitter.android",          // Twitter / X (legacy package)
-        "com.X.android",                // Twitter / X (new package)
+        "com.x.android",                // Twitter / X (new package)
         "com.zhiliaoapp.musically",     // TikTok
         "com.ss.android.ugc.trill",     // TikTok (some regions)
         "com.google.android.youtube",   // YouTube
