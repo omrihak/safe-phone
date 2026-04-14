@@ -253,7 +253,7 @@ class PolicyEngineTest {
     }
 
     @Test
-    fun self_foreground_never_blocks_or_grayscale() {
+    fun self_foreground_never_blocks_but_keeps_grayscale_when_enforcing() {
         val now = Instant.now()
         val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
         val input = baseInput(
@@ -261,6 +261,26 @@ class PolicyEngineTest {
             profile = profile,
             fg = selfPkg,
             blocked = setOf(selfPkg),
+        )
+        val d = PolicyEngine.evaluate(input)
+        assertFalse(d.blockApp)
+        assertTrue(d.applyGrayscale)
+        assertTrue(d.reason.contains("SafePhone", ignoreCase = true))
+    }
+
+    @Test
+    fun self_foreground_no_grayscale_during_soft_enforcement() {
+        val now = Instant.now()
+        val profile = FocusProfileEntity(
+            id = 1,
+            name = "P",
+            preset = "WORK_HOURS",
+            softEnforcement = true,
+        )
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = selfPkg,
         )
         val d = PolicyEngine.evaluate(input)
         assertFalse(d.blockApp)
