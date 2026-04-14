@@ -21,6 +21,9 @@ object SafePhoneTestTags {
     const val PARTNER_ALERT_SAVE = "partner_alert_save"
     const val PARTNER_ALERT_SEND_TEST = "partner_alert_send_test"
     const val BLOCK_STATS_EMPTY = "block_stats_empty"
+    const val BLOCK_STATS_PERIOD_DAY = "block_stats_period_day"
+    const val BLOCK_STATS_PERIOD_WEEK = "block_stats_period_week"
+    const val BLOCK_STATS_PERIOD_MONTH = "block_stats_period_month"
     const val BLOCKED_SEARCH_FIELD = "blocked_search_field"
     /** LazyColumn item: manual package entry card (below installed-app list). */
     const val BLOCKED_MANUAL_SECTION = "blocked_manual_section"

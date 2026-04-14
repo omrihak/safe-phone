@@ -61,6 +61,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -229,7 +230,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     composable("block_stats") {
-                        FeatureScaffold(nav, "Last 30 days") { padding ->
+                        FeatureScaffold(nav, "Block metrics") { padding ->
                             BlockStatsRoute(app, Modifier.padding(padding))
                         }
                     }
@@ -429,7 +430,12 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
         HomeDestination("blocked", "Blocked apps", "Always blocked when enforcing", Icons.Filled.Block),
         HomeDestination("domains", "Domain rules", "Block sites in the browser", Icons.Outlined.Language),
         HomeDestination("budgets", "Daily budgets", "Per-app time limits", Icons.Outlined.Timer),
-        HomeDestination("block_stats", "Last 30 days", "Times blocked (30 days)", Icons.Outlined.BarChart),
+        HomeDestination(
+            "block_stats",
+            "Block metrics",
+            "Block counts by day, week, or month",
+            Icons.Outlined.BarChart,
+        ),
         HomeDestination(
             "partner_alert",
             stringResource(R.string.partner_alert_title),
@@ -1583,10 +1589,35 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
     }
 }
 
+private enum class BlockStatsPeriod(val daysInclusive: Int, val chipLabel: String) {
+    DAY(1, "Day"),
+    WEEK(7, "Week"),
+    MONTH(30, "Month"),
+}
+
+private fun BlockStatsPeriod.rangePhrase(): String =
+    when (this) {
+        BlockStatsPeriod.DAY -> "today"
+        BlockStatsPeriod.WEEK -> "the last 7 days"
+        BlockStatsPeriod.MONTH -> "the last 30 days"
+    }
+
+private fun BlockStatsPeriod.emptyMessage(): String =
+    when (this) {
+        BlockStatsPeriod.DAY -> "No blocks recorded today."
+        BlockStatsPeriod.WEEK -> "No blocks recorded in the last 7 days."
+        BlockStatsPeriod.MONTH -> "No blocks recorded in the last 30 days."
+    }
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BlockStatsRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val sinceEpochDay = LocalDate.now(ZoneId.systemDefault()).minusDays(29).toEpochDay()
+    var period by remember { mutableStateOf(BlockStatsPeriod.MONTH) }
+    val zone = ZoneId.systemDefault()
+    val sinceEpochDay = remember(period) {
+        LocalDate.now(zone).minusDays(period.daysInclusive - 1L).toEpochDay()
+    }
     val rows by app.database.blockStatsDao().observeAggregatedSince(sinceEpochDay).collectAsState(initial = emptyList())
     fun targetLabel(row: BlockStatsAggregateRow): String = when (row.kind) {
         "web" -> row.targetKey
@@ -1608,8 +1639,29 @@ private fun BlockStatsRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BlockStatsPeriod.entries.forEach { p ->
+                    FilterChip(
+                        selected = period == p,
+                        onClick = { period = p },
+                        label = { Text(p.chipLabel) },
+                        modifier = Modifier.testTag(
+                            when (p) {
+                                BlockStatsPeriod.DAY -> SafePhoneTestTags.BLOCK_STATS_PERIOD_DAY
+                                BlockStatsPeriod.WEEK -> SafePhoneTestTags.BLOCK_STATS_PERIOD_WEEK
+                                BlockStatsPeriod.MONTH -> SafePhoneTestTags.BLOCK_STATS_PERIOD_MONTH
+                            },
+                        ),
+                    )
+                }
+            }
+        }
+        item {
             Text(
-                "Each row sums how often you hit the block screen for that app or site in the last 30 days. " +
+                "Each row sums how often you hit the block screen for that app or site in ${period.rangePhrase()}. " +
                     "Leaving and returning counts again.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1618,7 +1670,7 @@ private fun BlockStatsRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
         if (rows.isEmpty()) {
             item {
                 Text(
-                    "No blocks recorded in the last 30 days.",
+                    period.emptyMessage(),
                     modifier = Modifier.testTag(SafePhoneTestTags.BLOCK_STATS_EMPTY),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
