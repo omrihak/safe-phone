@@ -39,11 +39,16 @@ class InternalUpdateInstallerReceiver : BroadcastReceiver() {
                 )
             }
             else -> {
-                val detail = if (message.isNotEmpty()) message else status.toString()
+                val body = if (message.contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE", ignoreCase = true)) {
+                    context.getString(R.string.internal_update_notif_failed_signing_full)
+                } else {
+                    val detail = if (message.isNotEmpty()) message else status.toString()
+                    context.getString(R.string.internal_update_notif_failed_text, detail)
+                }
                 InternalUpdateNotifications.showResult(
                     context,
                     context.getString(R.string.internal_update_notif_failed_title),
-                    context.getString(R.string.internal_update_notif_failed_text, detail),
+                    body,
                 )
             }
         }

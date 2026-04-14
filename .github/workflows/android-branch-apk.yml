@@ -17,6 +17,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Require release signing secrets for OTA
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          missing=
+          [ -z "$KEYSTORE_BASE64" ] && missing="${missing}KEYSTORE_BASE64 "
+          [ -z "$KEYSTORE_PASSWORD" ] && missing="${missing}KEYSTORE_PASSWORD "
+          [ -z "$KEY_ALIAS" ] && missing="${missing}KEY_ALIAS "
+          [ -z "$KEY_PASSWORD" ] && missing="${missing}KEY_PASSWORD "
+          if [ -n "$missing" ]; then
+            echo "::error::Internal OTA requires a stable release keystore on every run. Missing or empty repository secrets: $missing" \
+              "Add them under Settings → Secrets and variables → Actions (see docs/internal-auto-update.md). Without them, Gradle falls back to an ephemeral debug key and INSTALL_FAILED_UPDATE_INCOMPATIBLE breaks in-app updates."
+            exit 1
+          fi
+
       - name: Public GitHub URL for OTA (manifest + release assets)
         id: ghurl
         run: |
@@ -38,16 +56,11 @@ jobs:
           echo "sanitized=${sanitized}" >> "$GITHUB_OUTPUT"
           echo "tag=internal-${sanitized}" >> "$GITHUB_OUTPUT"
 
-      - name: Decode release keystore (optional)
+      - name: Decode release keystore
         id: keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "ksfile=" >> "$GITHUB_OUTPUT"
-            echo "No KEYSTORE_BASE64; release will be signed with the default debug keystore (OTA upgrades require a stable release keystore)." >&2
-            exit 0
-          fi
           out="${RUNNER_TEMP}/upload.keystore"
           echo "$KEYSTORE_BASE64" | base64 -d > "$out"
           echo "ksfile=$out" >> "$GITHUB_OUTPUT"

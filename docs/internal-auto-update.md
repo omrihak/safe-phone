@@ -18,9 +18,11 @@ The app downloads the manifest from:
 
 ## Repository secrets
 
+**Required for [.github/workflows/android-branch-apk.yml](../.github/workflows/android-branch-apk.yml):** all four signing secrets below must be set. The workflow fails fast if any are missing, so every published OTA APK uses the same stable release key (ephemeral CI debug keystores would change every run and break updates).
+
 | Secret | Purpose |
 |--------|---------|
-| `KEYSTORE_BASE64` | Base64-encoded PKCS12 or JKS keystore file. If omitted, the APK is signed with the debug keystore (not suitable for in-place upgrades on a device). |
+| `KEYSTORE_BASE64` | Base64-encoded PKCS12 or JKS keystore file. |
 | `KEYSTORE_PASSWORD` | Keystore password. |
 | `KEY_ALIAS` | Signing key alias. |
 | `KEY_PASSWORD` | Key password. |
@@ -63,7 +65,7 @@ keyPassword=...
 
 ## First install on your phone
 
-1. Configure keystore secrets on GitHub (recommended).
+1. Configure all four keystore secrets on GitHub (required for the branch APK workflow; see [Repository secrets](#repository-secrets)).
 2. Push your branch; confirm the workflow creates or updates the **internal-…** prerelease under Releases.
 3. Install **once** with the same signing key CI uses (download the release asset or the workflow artifact):
 
@@ -74,6 +76,24 @@ keyPassword=...
 4. Later pushes with a higher `versionCode` (`github.run_number`) are picked up by the app (foreground download notification, then system install UI as required by Android).
 
 **Private repository**: release asset URLs still require **read access** to the repo; the device must be able to fetch HTTPS as an anonymous user only if the repo is **public**, or you would need authenticated downloads (not implemented here).
+
+## Troubleshooting: `INSTALL_FAILED_UPDATE_INCOMPATIBLE`
+
+Android returns this when the downloaded APK is **signed with a different certificate** than the build currently installed (`com.safephone.focus`). The in-app updater only checks `versionCode` and SHA-256; it cannot detect this until the system installer runs.
+
+**Common causes**
+
+- The app on the device was installed from a **different source** than today’s OTA (e.g. local `internalRelease` with `keystore.properties` vs CI before secrets were configured, or `internalDebug` vs `internalRelease`).
+- CI or your machine once used the **debug** fallback (no `upload` keystore) and later switched to a **stable** keystore (or the reverse).
+
+**Fix (align device with the signing key you will keep using)**
+
+1. Ensure GitHub Actions has all four signing secrets configured so every branch APK is signed the same way (see above).
+2. **Uninstall** SafePhone from the device once (this clears the old signing lineage).
+3. Install the latest `app-internal-release.apk` from the matching **`internal-…`** prerelease (or workflow artifact) for your branch.
+4. Confirm future updates: `apksigner verify --print-certs` on the installed base APK and on the release asset should show the **same** signer certificates.
+
+For local `assembleInternalRelease` / `installInternalRelease`, use the **same** `keystore.properties` (or env vars) as CI so your device never diverges from OTA binaries.
 
 ## Standard CI tasks
 
