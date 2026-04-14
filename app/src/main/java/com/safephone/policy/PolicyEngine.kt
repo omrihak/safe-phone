@@ -45,6 +45,8 @@ object PolicyEngine {
         val withinSchedule = true
         val onBreak = input.breakEndMs != null && input.now.toEpochMilli() < input.breakEndMs
         val enforcing = withinSchedule && !onBreak && !input.activeProfile.softEnforcement
+        val calendarEnforce = input.calendarStricterActive && !onBreak
+        val hardEnforce = enforcing || calendarEnforce
 
         if (input.selfPackageName == input.currentForegroundPackage) {
             return PolicyDecision(
@@ -53,7 +55,7 @@ object PolicyEngine {
                 enforcing = enforcing,
                 blockApp = false,
                 blockWebOverlay = false,
-                applyGrayscale = false,
+                applyGrayscale = hardEnforce,
                 reason = "SafePhone foreground",
             )
         }
@@ -69,9 +71,6 @@ object PolicyEngine {
                 reason = "On break / soft mode",
             )
         }
-
-        val calendarEnforce = input.calendarStricterActive && !onBreak
-        val hardEnforce = enforcing || calendarEnforce
 
         if (!hardEnforce) {
             return PolicyDecision(
