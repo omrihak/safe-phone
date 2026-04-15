@@ -81,7 +81,7 @@
     <string name="internal_update_notif_failed_text">Could not install the update. %1$s</string>
     <string name="internal_update_notif_failed_signing_full">Could not install the update. This APK was signed with a different key than your current install. Uninstall SafePhone once, then install the latest app-internal-release.apk from your branch release (same key as CI). INSTALL_FAILED_UPDATE_INCOMPATIBLE</string>
 
-    <string name="vibe_coding_title">Vibe coding</string>
+    <string name="vibe_coding_title">New Feature</string>
     <string name="vibe_coding_nav_subtitle">Request a feature on GitHub</string>
     <string name="vibe_coding_subtitle">Describe a change, then open GitHub to file an issue. After code merges to your internal branch, the usual internal APK workflow publishes an update.</string>
     <string name="vibe_coding_field_label">Feature request</string>
