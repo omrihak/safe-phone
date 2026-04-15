@@ -59,7 +59,7 @@ jobs:
             const custom = [
               'You are assigned from a SafePhone / vibe-coding issue. Use the title and description as the source of truth.',
               'Prefer small commits. Run checks that exist in the repo (e.g. `./gradlew :app:testStandardDebugUnitTest`).',
-              'Open a PR against the base branch below when done.',
+              'Open a PR against the base branch below when done (ready for review, not a draft).',
               '---',
               `Title: ${issue.title}`,
               '',
