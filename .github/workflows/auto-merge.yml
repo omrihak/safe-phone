@@ -1,4 +1,5 @@
-# Merges any pull request after "Android CI" succeeds.
+# Merges any pull request after "Android CI" succeeds for the same commit as the PR head
+# (head SHA must match the workflow run; avoids merging if the branch moved after CI).
 # Branch protection: if merges are blocked (required reviewers), add repository secret
 # COPILOT_MERGE_PAT — a fine-grained PAT with Contents and Pull requests (write), or
 # classic PAT with repo scope — and relax or bypass rules as appropriate for your org.
@@ -59,9 +60,24 @@ jobs:
               if (pr.state !== 'open' || pr.merged) {
                 continue;
               }
+              if (pr.head.sha !== run.head_sha) {
+                core.info(
+                  `PR #${num} head ${pr.head.sha.slice(0, 7)} does not match Android CI run ${String(run.head_sha).slice(0, 7)}; branch moved or run is stale — skipping merge.`,
+                );
+                continue;
+              }
               if (!mergeableBases.has(pr.base.ref)) {
                 core.info(`PR #${num} targets ${pr.base.ref}; skipping.`);
                 continue;
+              }
+              if (pr.draft) {
+                await github.rest.pulls.update({
+                  owner,
+                  repo,
+                  pull_number: num,
+                  draft: false,
+                });
+                core.info(`PR #${num} was a draft; marked ready for review before merge.`);
               }
               try {
                 await github.rest.pulls.merge({
