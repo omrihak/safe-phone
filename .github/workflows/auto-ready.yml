@@ -1,0 +1,29 @@
+# Converts a newly-opened draft PR to "ready for review" so that the
+# Android CI workflow is triggered (it listens to the ready_for_review event).
+# Uses pull_request_target so it fires even when the PR is a draft.
+
+name: Auto-ready draft PRs
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  mark-ready:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == true
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.COPILOT_MERGE_PAT != '' && secrets.COPILOT_MERGE_PAT || github.token }}
+          script: |
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              draft: false,
+            });
+            core.info(`PR #${context.payload.pull_request.number} converted from draft to ready for review.`);
