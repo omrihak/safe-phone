@@ -111,6 +111,12 @@ class BreakManager(
         const val ACTION_END_BREAK = "com.safephone.END_BREAK"
         private const val REQ_BREAK_END = 1001
 
+        /**
+         * Returns how many breaks are unlocked by [nowEpochMs] for the current local day in [zoneId].
+         *
+         * Breaks are granted at even intervals across the day according to [maxBreaksPerDay], including
+         * one grant at day start. Formula: `granted = floor(elapsedMs * maxBreaks / dayLengthMs) + 1`.
+         */
         internal fun grantedBreaksByNow(maxBreaksPerDay: Int, nowEpochMs: Long, zoneId: ZoneId): Int {
             val maxBreaks = maxBreaksPerDay.coerceAtLeast(0)
             if (maxBreaks == 0) return 0
@@ -123,6 +129,10 @@ class BreakManager(
             return granted.coerceAtMost(maxBreaks)
         }
 
+        /**
+         * Returns the next epoch millis when a new break grant unlocks, or null if all daily grants
+         * for [maxBreaksPerDay] are already unlocked at [nowEpochMs] in [zoneId].
+         */
         internal fun nextGrantEpochMs(maxBreaksPerDay: Int, nowEpochMs: Long, zoneId: ZoneId): Long? {
             val maxBreaks = maxBreaksPerDay.coerceAtLeast(0)
             if (maxBreaks <= 0) return null

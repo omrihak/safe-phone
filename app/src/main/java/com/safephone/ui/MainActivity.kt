@@ -1648,6 +1648,7 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
                         com.safephone.data.BreakPolicyEntity(
                             maxBreaksPerDay = max.toIntOrNull() ?: 5,
                             breakDurationMinutes = dur.toIntOrNull() ?: 10,
+                            // Legacy field retained in schema; break unlock timing is now day-distributed.
                             minGapBetweenBreaksMinutes = policy?.minGapBetweenBreaksMinutes ?: 30,
                         ),
                     )
