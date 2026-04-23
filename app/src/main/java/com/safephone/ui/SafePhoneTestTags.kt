@@ -41,7 +41,6 @@ object SafePhoneTestTags {
     const val BUDGET_REMOVE_PREFIX = "budget_remove_"
     const val BREAKS_MAX_FIELD = "breaks_max_field"
     const val BREAKS_DURATION_FIELD = "breaks_duration_field"
-    const val BREAKS_GAP_FIELD = "breaks_gap_field"
     const val BREAKS_SAVE = "breaks_save"
     const val EXPORT_GENERATE = "export_generate"
     const val EXPORT_SHARE = "export_share"

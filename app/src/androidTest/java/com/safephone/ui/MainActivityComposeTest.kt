@@ -81,7 +81,6 @@ class MainActivityComposeTest {
         composeRule.onNodeWithTag(SafePhoneTestTags.HOME_NAV_BREAKS).performClick()
         composeRule.onNodeWithTag(SafePhoneTestTags.BREAKS_MAX_FIELD).performTextInput("4")
         composeRule.onNodeWithTag(SafePhoneTestTags.BREAKS_DURATION_FIELD).performTextInput("12")
-        composeRule.onNodeWithTag(SafePhoneTestTags.BREAKS_GAP_FIELD).performTextInput("45")
         composeRule.onNodeWithTag(SafePhoneTestTags.BREAKS_SAVE).performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag(SafePhoneTestTags.BREAKS_MAX_FIELD).assertIsDisplayed()

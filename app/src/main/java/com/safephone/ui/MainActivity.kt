@@ -396,34 +396,31 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
     val breakEnd by prefs.breakEndEpochMs.collectAsState(initial = null)
     val breaksUsed by prefs.breaksUsedToday.collectAsState(initial = 0)
     val breakDay by prefs.breakDayEpochDay.collectAsState(initial = 0L)
-    val lastBreakEndedMs by prefs.lastBreakEndedEpochMs.collectAsState(initial = 0L)
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(breakPolicy?.minGapBetweenBreaksMinutes) {
+    LaunchedEffect(Unit) {
         FocusEnforcementService.start(context.applicationContext)
         while (isActive) {
             now = System.currentTimeMillis()
             val end = prefs.breakEndEpochMs.first()
             val ticking = end != null && now < end
-            val lastEnd = prefs.lastBreakEndedEpochMs.first()
-            val gapMinutes = breakPolicy?.minGapBetweenBreaksMinutes ?: 30
-            val waitingGap = lastEnd > 0L && (now - lastEnd) < gapMinutes * 60_000L
-            delay(if (ticking || waitingGap) 1_000L else 15_000L)
+            delay(if (ticking) 1_000L else 15_000L)
         }
     }
     val onBreak = breakEnd != null && now < breakEnd!!
     val today = LocalDate.now(ZoneId.systemDefault()).toEpochDay()
     val usedToday = if (breakDay != today) 0 else breaksUsed
     val maxBreaks = breakPolicy?.maxBreaksPerDay ?: 5
-    val breaksLeft = (maxBreaks - usedToday).coerceAtLeast(0)
-    val gapMinutes = breakPolicy?.minGapBetweenBreaksMinutes ?: 30
-    val gapOk =
-        lastBreakEndedMs <= 0L || (now - lastBreakEndedMs) >= gapMinutes * 60_000L
-    val canStartBreakNow = breaksLeft > 0 && !onBreak && gapOk
-    val gapWaitMinutes =
-        if (lastBreakEndedMs > 0L && !gapOk) {
-            val requiredMs = gapMinutes * 60_000L
-            val elapsed = now - lastBreakEndedMs
-            ((requiredMs - elapsed + 59_999) / 60_000).toInt().coerceAtLeast(1)
+    val grantedNow = BreakManager.grantedBreaksByNow(maxBreaks, now, ZoneId.systemDefault())
+    val breaksLeft = (grantedNow - usedToday).coerceAtLeast(0)
+    val canStartBreakNow = breaksLeft > 0 && !onBreak
+    val nextGrantWaitMinutes =
+        if (!onBreak && breaksLeft <= 0 && usedToday < maxBreaks) {
+            val nextGrantAt = BreakManager.nextGrantEpochMs(maxBreaks, now, ZoneId.systemDefault())
+            if (nextGrantAt != null) {
+                ((nextGrantAt - now + 59_999L) / 60_000L).toInt().coerceAtLeast(1)
+            } else {
+                0
+            }
         } else {
             0
         }
@@ -549,9 +546,9 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.testTag(SafePhoneTestTags.HOME_BREAKS_BALANCE),
                         )
-                        if (gapWaitMinutes > 0) {
+                        if (nextGrantWaitMinutes > 0) {
                             Text(
-                                stringResource(R.string.home_break_gap_wait, gapWaitMinutes),
+                                stringResource(R.string.home_break_gap_wait, nextGrantWaitMinutes),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -1610,12 +1607,10 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     var max by remember { mutableStateOf(policy?.maxBreaksPerDay?.toString() ?: "5") }
     var dur by remember { mutableStateOf(policy?.breakDurationMinutes?.toString() ?: "10") }
-    var gap by remember { mutableStateOf(policy?.minGapBetweenBreaksMinutes?.toString() ?: "30") }
     LaunchedEffect(policy) {
         policy?.let {
             max = it.maxBreaksPerDay.toString()
             dur = it.breakDurationMinutes.toString()
-            gap = it.minGapBetweenBreaksMinutes.toString()
         }
     }
     Column(
@@ -1626,7 +1621,7 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(
-            "Control how many timed breaks you get per day to relax the rules.",
+            "Breaks unlock gradually through the day based on your daily amount.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1646,14 +1641,6 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
             shape = RoundedCornerShape(12.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         )
-        OutlinedTextField(
-            gap,
-            { gap = it },
-            label = { Text("Minimum gap between breaks (minutes)") },
-            modifier = Modifier.fillMaxWidth().testTag(SafePhoneTestTags.BREAKS_GAP_FIELD),
-            shape = RoundedCornerShape(12.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        )
         Button(
             onClick = {
                 scope.launch {
@@ -1661,7 +1648,8 @@ private fun BreaksRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
                         com.safephone.data.BreakPolicyEntity(
                             maxBreaksPerDay = max.toIntOrNull() ?: 5,
                             breakDurationMinutes = dur.toIntOrNull() ?: 10,
-                            minGapBetweenBreaksMinutes = gap.toIntOrNull() ?: 30,
+                            // Legacy field retained in schema; break unlock timing is now day-distributed.
+                            minGapBetweenBreaksMinutes = policy?.minGapBetweenBreaksMinutes ?: 30,
                         ),
                     )
                     FocusWidgetReceiver.refreshAll(context.applicationContext)

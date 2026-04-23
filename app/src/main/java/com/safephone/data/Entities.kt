@@ -45,6 +45,7 @@ data class BreakPolicyEntity(
     @PrimaryKey val id: Int = 1,
     val maxBreaksPerDay: Int = 5,
     val breakDurationMinutes: Int = 10,
+    /** Deprecated in logic; retained for schema compatibility with existing installs. */
     val minGapBetweenBreaksMinutes: Int = 30,
 )
 
