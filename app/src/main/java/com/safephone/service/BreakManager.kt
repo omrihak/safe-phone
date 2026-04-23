@@ -27,8 +27,17 @@ class BreakManager(
     }
 
     suspend fun breaksRemainingToday(policy: BreakPolicyEntity): Int {
+        val granted = breaksGrantedToday(policy)
         val used = effectiveBreaksUsedToday()
-        return (policy.maxBreaksPerDay - used).coerceAtLeast(0)
+        return (granted - used).coerceAtLeast(0)
+    }
+
+    suspend fun breaksGrantedToday(policy: BreakPolicyEntity): Int {
+        return grantedBreaksByNow(
+            maxBreaksPerDay = policy.maxBreaksPerDay,
+            nowEpochMs = System.currentTimeMillis(),
+            zoneId = deviceZone,
+        )
     }
 
     suspend fun isOnBreakNow(): Boolean {
@@ -36,20 +45,18 @@ class BreakManager(
         return System.currentTimeMillis() < end
     }
 
-    /**
-     * True if [policy.minGapBetweenBreaksMinutes] has passed since the last break ended
-     * (or no break has ended yet — [FocusPreferences.lastBreakEndedEpochMs] is 0).
-     */
-    suspend fun gapSatisfied(policy: BreakPolicyEntity): Boolean {
-        val lastEnd = prefs.lastBreakEndedEpochMs.first()
-        if (lastEnd <= 0L) return true
-        val minutes = policy.minGapBetweenBreaksMinutes.coerceAtLeast(0)
-        val requiredMs = minutes * 60_000L
-        return System.currentTimeMillis() - lastEnd >= requiredMs
+    suspend fun canStartBreak(policy: BreakPolicyEntity): Boolean {
+        return breaksRemainingToday(policy) > 0 && !isOnBreakNow()
     }
 
-    suspend fun canStartBreak(policy: BreakPolicyEntity): Boolean {
-        return breaksRemainingToday(policy) > 0 && !isOnBreakNow() && gapSatisfied(policy)
+    suspend fun minutesUntilNextGrant(policy: BreakPolicyEntity): Int? {
+        val maxBreaks = policy.maxBreaksPerDay.coerceAtLeast(0)
+        val used = effectiveBreaksUsedToday()
+        if (used >= maxBreaks) return null
+        if (breaksRemainingToday(policy) > 0) return 0
+        val now = System.currentTimeMillis()
+        val nextGrantEpochMs = nextGrantEpochMs(maxBreaks, now, deviceZone) ?: return null
+        return ((nextGrantEpochMs - now + 59_999L) / 60_000L).toInt().coerceAtLeast(1)
     }
 
     suspend fun startBreak(durationMinutes: Int, policy: BreakPolicyEntity): Boolean {
@@ -103,5 +110,30 @@ class BreakManager(
     companion object {
         const val ACTION_END_BREAK = "com.safephone.END_BREAK"
         private const val REQ_BREAK_END = 1001
+
+        internal fun grantedBreaksByNow(maxBreaksPerDay: Int, nowEpochMs: Long, zoneId: ZoneId): Int {
+            val maxBreaks = maxBreaksPerDay.coerceAtLeast(0)
+            if (maxBreaks == 0) return 0
+            val localDate = java.time.Instant.ofEpochMilli(nowEpochMs).atZone(zoneId).toLocalDate()
+            val dayStartEpochMs = localDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
+            val nextDayStartEpochMs = localDate.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+            val dayLengthMs = (nextDayStartEpochMs - dayStartEpochMs).coerceAtLeast(1L)
+            val elapsedMs = (nowEpochMs - dayStartEpochMs).coerceIn(0L, dayLengthMs - 1L)
+            val granted = ((elapsedMs * maxBreaks.toLong()) / dayLengthMs).toInt() + 1
+            return granted.coerceAtMost(maxBreaks)
+        }
+
+        internal fun nextGrantEpochMs(maxBreaksPerDay: Int, nowEpochMs: Long, zoneId: ZoneId): Long? {
+            val maxBreaks = maxBreaksPerDay.coerceAtLeast(0)
+            if (maxBreaks <= 0) return null
+            val localDate = java.time.Instant.ofEpochMilli(nowEpochMs).atZone(zoneId).toLocalDate()
+            val dayStartEpochMs = localDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
+            val nextDayStartEpochMs = localDate.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+            val dayLengthMs = (nextDayStartEpochMs - dayStartEpochMs).coerceAtLeast(1L)
+            val elapsedMs = (nowEpochMs - dayStartEpochMs).coerceAtLeast(0L)
+            val nextGrantIndex = ((elapsedMs * maxBreaks.toLong()) / dayLengthMs).toInt() + 1
+            if (nextGrantIndex >= maxBreaks) return null
+            return dayStartEpochMs + ((nextGrantIndex.toLong() * dayLengthMs) / maxBreaks.toLong())
+        }
     }
 }

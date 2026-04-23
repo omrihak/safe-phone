@@ -17,8 +17,8 @@
     <string name="widget_toast_break_started">Break started</string>
     <string name="widget_toast_no_breaks">No breaks left today</string>
     <string name="widget_toast_already_on_break">Already on a break</string>
-    <string name="widget_toast_break_gap">Wait longer before the next break</string>
-    <string name="home_break_gap_wait">Wait %1$d min before another break</string>
+    <string name="widget_toast_break_gap">Next break unlocks in %1$d min</string>
+    <string name="home_break_gap_wait">Next break unlocks in %1$d min</string>
     <plurals name="widget_breaks_left">
         <item quantity="one">%d break left today</item>
         <item quantity="other">%d breaks left today</item>
