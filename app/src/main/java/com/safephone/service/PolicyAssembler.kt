@@ -50,6 +50,7 @@ class PolicyAssembler(
         val calendarOn = prefs.calendarAware.first()
         val keywords = db.calendarKeywordDao().getAll()
         val calendarStricter = calendarOn && calendar.isFocusKeywordActiveNow(keywords)
+        val activeDays = prefs.activeDaysOfWeek.first()
 
         return PolicyInput(
             now = Instant.now(),
@@ -70,6 +71,7 @@ class PolicyAssembler(
             currentWebHost = webHost,
             strictBrowserLock = profile?.strictBrowserLock == true,
             calendarStricterActive = calendarStricter,
+            activeDaysOfWeek = activeDays,
         )
     }
 }

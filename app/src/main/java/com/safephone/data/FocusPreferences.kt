@@ -51,6 +51,18 @@ class FocusPreferences(private val context: Context) {
     val partnerAlertPhoneDigits: Flow<String> =
         context.dataStore.data.map { it[KEY_PARTNER_ALERT_PHONE] ?: "" }
 
+    /**
+     * Days of the week on which focus rules are enforced.
+     * Values correspond to [DayOfWeek.getValue] (1 = Monday … 7 = Sunday).
+     * Defaults to all seven days so that existing installs are unaffected.
+     */
+    val activeDaysOfWeek: Flow<Set<Int>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ACTIVE_DAYS]
+            ?.mapNotNull { it.toIntOrNull() }
+            ?.toSet()
+            ?: (1..7).toSet()
+    }
+
     suspend fun hasDaltonizerSnapshot(): Boolean =
         context.dataStore.data.map { it[KEY_DALTONIZER_SNAP] == true }.first()
 
@@ -117,6 +129,10 @@ class FocusPreferences(private val context: Context) {
 
     suspend fun setPartnerAlertPhoneDigits(digits: String) {
         context.dataStore.edit { it[KEY_PARTNER_ALERT_PHONE] = digits }
+    }
+
+    suspend fun setActiveDaysOfWeek(days: Set<Int>) {
+        context.dataStore.edit { it[KEY_ACTIVE_DAYS] = days.map { d -> d.toString() }.toSet() }
     }
 
     /**
@@ -196,5 +212,6 @@ class FocusPreferences(private val context: Context) {
         private val KEY_PARTNER_ALERT_PHONE = stringPreferencesKey("partner_alert_phone")
         private val KEY_PARTNER_CLAIM_DAY = longPreferencesKey("partner_claim_day")
         private val KEY_PARTNER_CLAIM_SET = stringSetPreferencesKey("partner_claim_keys")
+        private val KEY_ACTIVE_DAYS = stringSetPreferencesKey("active_days_of_week")
     }
 }
