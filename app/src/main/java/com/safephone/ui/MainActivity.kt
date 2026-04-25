@@ -52,6 +52,7 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Coffee
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -112,7 +113,7 @@ import com.safephone.data.BlockStatsAggregateRow
 import com.safephone.data.BlockedAppEntity
 import com.safephone.data.DomainRuleEntity
 import com.safephone.data.SocialMediaCategory
-import com.safephone.github.VibeCodingGitHub
+import java.time.DayOfWeekimport com.safephone.github.VibeCodingGitHub
 import com.safephone.export.RulesExporter
 import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
@@ -243,6 +244,11 @@ class MainActivity : ComponentActivity() {
                     composable("partner_alert") {
                         FeatureScaffold(nav, stringResource(R.string.partner_alert_title)) { padding ->
                             PartnerAlertRoute(app, Modifier.padding(padding))
+                        }
+                    }
+                    composable("weekday_schedule") {
+                        FeatureScaffold(nav, "Weekday schedule") { padding ->
+                            WeekdayScheduleRoute(app, Modifier.padding(padding))
                         }
                     }
                     composable("vibe_coding") {
@@ -440,6 +446,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             stringResource(R.string.partner_alert_subtitle),
             Icons.Outlined.Email,
         ),
+        HomeDestination("weekday_schedule", "Weekday schedule", "Days when rules apply", Icons.Outlined.CalendarMonth),
         HomeDestination("breaks", "Break policy", "How breaks work", Icons.Outlined.Coffee),
         HomeDestination("export", "Export rules", "Share JSON backup", Icons.Outlined.UploadFile),
         HomeDestination(
@@ -467,6 +474,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             "budgets" to SafePhoneTestTags.HOME_NAV_BUDGETS,
             "block_stats" to SafePhoneTestTags.HOME_NAV_BLOCK_STATS,
             "partner_alert" to SafePhoneTestTags.HOME_NAV_PARTNER_ALERT,
+            "weekday_schedule" to SafePhoneTestTags.HOME_NAV_WEEKDAY_SCHEDULE,
             "breaks" to SafePhoneTestTags.HOME_NAV_BREAKS,
             "export" to SafePhoneTestTags.HOME_NAV_EXPORT,
             "system_grayscale" to SafePhoneTestTags.HOME_NAV_SYSTEM_GRAYSCALE,
@@ -1595,6 +1603,84 @@ private fun BudgetRow(
                     Text("OK", style = MaterialTheme.typography.labelLarge)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
+    val prefs = app.prefs
+    val scope = rememberCoroutineScope()
+    val activeDays by prefs.activeDaysOfWeek.collectAsState(initial = (1..7).toSet())
+
+    val days = remember {
+        listOf(
+            DayOfWeek.MONDAY to "Mon",
+            DayOfWeek.TUESDAY to "Tue",
+            DayOfWeek.WEDNESDAY to "Wed",
+            DayOfWeek.THURSDAY to "Thu",
+            DayOfWeek.FRIDAY to "Fri",
+            DayOfWeek.SATURDAY to "Sat",
+            DayOfWeek.SUNDAY to "Sun",
+        )
+    }
+
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text(
+            "Select the days on which focus rules apply. " +
+                "On unselected days all rules are suspended and app use is unlimited.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            days.forEach { (dow, label) ->
+                val selected = dow.value in activeDays
+                FilterChip(
+                    selected = selected,
+                    onClick = {
+                        val updated = if (selected) {
+                            activeDays - dow.value
+                        } else {
+                            activeDays + dow.value
+                        }
+                        scope.launch { prefs.setActiveDaysOfWeek(updated) }
+                    },
+                    label = { Text(label) },
+                )
+            }
+        }
+        if (activeDays.isEmpty()) {
+            Text(
+                "⚠ No days selected – focus rules are disabled every day.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else if (activeDays.size == 7) {
+            Text(
+                "Rules are active every day of the week.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            val selectedLabels = days
+                .filter { (dow, _) -> dow.value in activeDays }
+                .joinToString(", ") { (_, label) -> label }
+            Text(
+                "Rules apply on: $selectedLabels",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

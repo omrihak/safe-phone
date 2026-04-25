@@ -380,4 +380,55 @@ class PolicyEngineTest {
         assertFalse(PolicyEngine.domainBlocked("example.com", SocialMediaCategory.domains))
         assertFalse(PolicyEngine.domainBlocked("google.com", SocialMediaCategory.domains))
     }
+
+    // --- Weekday schedule ---
+
+    @Test
+    fun off_day_returns_idle() {
+        val now = Instant.now()
+        val todayDow = now.atZone(zone).dayOfWeek.value
+        // Build a set without today
+        val activeDays = (1..7).filter { it != todayDow }.toSet()
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.bad.game",
+            blocked = setOf("com.bad.game"),
+        ).copy(activeDaysOfWeek = activeDays)
+        val d = PolicyEngine.evaluate(input)
+        assertFalse(d.enforcing)
+        assertFalse(d.blockApp)
+        assertTrue(d.reason.contains("Off day", ignoreCase = true))
+    }
+
+    @Test
+    fun on_day_enforces_rules() {
+        val now = Instant.now()
+        val todayDow = now.atZone(zone).dayOfWeek.value
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.bad.game",
+            blocked = setOf("com.bad.game"),
+        ).copy(activeDaysOfWeek = setOf(todayDow))
+        val d = PolicyEngine.evaluate(input)
+        assertTrue(d.blockApp)
+    }
+
+    @Test
+    fun empty_active_days_returns_idle() {
+        val now = Instant.now()
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.bad.game",
+            blocked = setOf("com.bad.game"),
+        ).copy(activeDaysOfWeek = emptySet())
+        val d = PolicyEngine.evaluate(input)
+        assertFalse(d.enforcing)
+        assertFalse(d.blockApp)
+    }
 }
