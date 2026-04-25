@@ -113,7 +113,8 @@ import com.safephone.data.BlockStatsAggregateRow
 import com.safephone.data.BlockedAppEntity
 import com.safephone.data.DomainRuleEntity
 import com.safephone.data.SocialMediaCategory
-import java.time.DayOfWeekimport com.safephone.github.VibeCodingGitHub
+import com.safephone.github.VibeCodingGitHub
+import java.time.DayOfWeek
 import com.safephone.export.RulesExporter
 import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
