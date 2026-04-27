@@ -1,5 +1,6 @@
 package com.safephone.widget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -21,11 +22,23 @@ import kotlinx.coroutines.runBlocking
 
 class FocusWidgetReceiver : AppWidgetProvider() {
 
+    override fun onEnabled(context: Context) {
+        scheduleRefreshAlarm(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        cancelRefreshAlarm(context)
+    }
+
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         updateWidgets(context, appWidgetManager, appWidgetIds)
     }
 
     override fun onReceive(context: Context, intent: Intent?) {
+        if (intent?.action == ACTION_WIDGET_REFRESH) {
+            refreshAll(context)
+            return
+        }
         if (intent?.action == ACTION_START_BREAK) {
             val appCtx = context.applicationContext
             runBlocking {
@@ -59,6 +72,37 @@ class FocusWidgetReceiver : AppWidgetProvider() {
 
     companion object {
         const val ACTION_START_BREAK = "com.safephone.WIDGET_START_BREAK"
+        const val ACTION_WIDGET_REFRESH = "com.safephone.WIDGET_REFRESH"
+        private const val REQ_WIDGET_REFRESH = 2001
+
+        /**
+         * Schedules an inexact repeating alarm every 30 minutes to keep the widget subtitle
+         * up-to-date as new break grants unlock throughout the day.
+         */
+        fun scheduleRefreshAlarm(context: Context) {
+            val appCtx = context.applicationContext
+            val am = appCtx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            am.setInexactRepeating(
+                AlarmManager.RTC,
+                System.currentTimeMillis() + AlarmManager.INTERVAL_HALF_HOUR,
+                AlarmManager.INTERVAL_HALF_HOUR,
+                refreshPendingIntent(appCtx),
+            )
+        }
+
+        fun cancelRefreshAlarm(context: Context) {
+            val appCtx = context.applicationContext
+            val am = appCtx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            am.cancel(refreshPendingIntent(appCtx))
+        }
+
+        private fun refreshPendingIntent(context: Context): PendingIntent =
+            PendingIntent.getBroadcast(
+                context,
+                REQ_WIDGET_REFRESH,
+                Intent(context, FocusWidgetReceiver::class.java).setAction(ACTION_WIDGET_REFRESH),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         private data class WidgetUpdate(
             val title: String,
@@ -91,7 +135,14 @@ class FocusWidgetReceiver : AppWidgetProvider() {
                     else appCtx.getString(R.string.widget_title_take_break)
                 val subtitleStr = when {
                     onBreakNow -> ""
-                    remaining <= 0 -> appCtx.getString(R.string.widget_subtitle_no_breaks)
+                    remaining <= 0 -> {
+                        val waitMinutes = mgr.minutesUntilNextGrant(policy)
+                        if (waitMinutes != null && waitMinutes > 0) {
+                            appCtx.getString(R.string.widget_subtitle_next_break_in, waitMinutes)
+                        } else {
+                            appCtx.getString(R.string.widget_subtitle_no_breaks)
+                        }
+                    }
                     else -> appCtx.resources.getQuantityString(R.plurals.widget_breaks_left, remaining, remaining)
                 }
                 val chronoBase =

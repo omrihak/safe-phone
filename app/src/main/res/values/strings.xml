@@ -14,6 +14,7 @@
     <string name="widget_subtitle_placeholder">—</string>
     <string name="home_break_time_remaining">%1$s remaining</string>
     <string name="widget_subtitle_no_breaks">No breaks left today</string>
+    <string name="widget_subtitle_next_break_in">Next break in %1$d min</string>
     <string name="widget_toast_break_started">Break started</string>
     <string name="widget_toast_no_breaks">No breaks left today</string>
     <string name="widget_toast_already_on_break">Already on a break</string>
