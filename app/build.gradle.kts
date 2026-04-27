@@ -44,6 +44,38 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
 
+/**
+ * Local-only secrets (PATs, default gist ids, etc.). Mirrors the pattern used for keystore.properties
+ * so secrets stay in [local.properties] (gitignored) and never enter source control. Gradle's
+ * `findProperty` (which reads `gradle.properties` and `-P` flags) is consulted as a fallback so CI
+ * can still inject these values via `-Psafephone.cloudSyncDefaultGitHubToken=...`.
+ */
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+}
+
+fun org.gradle.api.Project.localOrProperty(name: String): String {
+    val fromLocal = localProperties.getProperty(name)?.trim().orEmpty()
+    if (fromLocal.isNotEmpty()) return fromLocal
+    return (findProperty(name) as String?)?.trim().orEmpty()
+}
+
+/**
+ * Resolves a build-time secret in this priority order:
+ * 1. Environment variable [envName] (preferred for CI — secrets stay out of the gradle command line),
+ * 2. `local.properties` value of [propertyName],
+ * 3. Gradle project property [propertyName] (so `-P` overrides still work for ad-hoc builds).
+ *
+ * Returns an empty string when none of the sources are set, so the BuildConfig literal is `""`.
+ */
+fun org.gradle.api.Project.envOrLocalOrProperty(envName: String, propertyName: String): String {
+    val fromEnv = System.getenv(envName)?.trim().orEmpty()
+    if (fromEnv.isNotEmpty()) return fromEnv
+    return localOrProperty(propertyName)
+}
+
 val appVersionCode = (findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 1
 val appVersionName = (findProperty("appVersionName") as String?)?.trim().orEmpty().ifEmpty { "0.1.0" }
 
@@ -62,6 +94,25 @@ android {
         val (ghIssuesOwner, ghIssuesRepo) = githubIssuesOwnerRepo()
         buildConfigField("String", "GITHUB_ISSUES_OWNER", ghIssuesOwner.toBuildConfigStringLiteral())
         buildConfigField("String", "GITHUB_ISSUES_REPO", ghIssuesRepo.toBuildConfigStringLiteral())
+
+        val cloudSyncToken = envOrLocalOrProperty(
+            envName = "SAFEPHONE_CLOUD_SYNC_DEFAULT_GITHUB_TOKEN",
+            propertyName = "safephone.cloudSyncDefaultGitHubToken",
+        )
+        val cloudSyncGistId = envOrLocalOrProperty(
+            envName = "SAFEPHONE_CLOUD_SYNC_DEFAULT_GIST_ID",
+            propertyName = "safephone.cloudSyncDefaultGistId",
+        )
+        buildConfigField(
+            "String",
+            "CLOUD_SYNC_DEFAULT_GITHUB_TOKEN",
+            cloudSyncToken.toBuildConfigStringLiteral(),
+        )
+        buildConfigField(
+            "String",
+            "CLOUD_SYNC_DEFAULT_GIST_ID",
+            cloudSyncGistId.toBuildConfigStringLiteral(),
+        )
     }
     testOptions {
         @Suppress("DEPRECATION")

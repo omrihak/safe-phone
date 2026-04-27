@@ -24,6 +24,9 @@ interface FocusProfileDao {
 
     @Query("DELETE FROM profiles WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("DELETE FROM profiles")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -39,6 +42,9 @@ interface BlockedAppDao {
 
     @Query("DELETE FROM blocked_apps WHERE packageName = :packageName")
     suspend fun delete(packageName: String)
+
+    @Query("DELETE FROM blocked_apps")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -54,6 +60,9 @@ interface DomainRuleDao {
 
     @Query("DELETE FROM domain_rules WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("DELETE FROM domain_rules")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -69,6 +78,9 @@ interface AppBudgetDao {
 
     @Query("DELETE FROM app_budgets WHERE packageName = :packageName")
     suspend fun delete(packageName: String)
+
+    @Query("DELETE FROM app_budgets")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -96,6 +108,9 @@ interface CalendarKeywordDao {
 
     @Query("DELETE FROM calendar_keywords WHERE keyword = :keyword")
     suspend fun delete(keyword: String)
+
+    @Query("DELETE FROM calendar_keywords")
+    suspend fun deleteAll()
 }
 
 @Dao
