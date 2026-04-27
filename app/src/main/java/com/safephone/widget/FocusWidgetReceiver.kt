@@ -19,6 +19,7 @@ import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import java.time.ZoneId
 
 class FocusWidgetReceiver : AppWidgetProvider() {
 
@@ -109,6 +110,7 @@ class FocusWidgetReceiver : AppWidgetProvider() {
             val subtitle: String,
             val onBreak: Boolean,
             val chronoBaseElapsed: Long,
+            val nextGrantEpochMs: Long?,
         )
 
         fun refreshAll(context: Context) {
@@ -122,7 +124,7 @@ class FocusWidgetReceiver : AppWidgetProvider() {
 
         fun updateWidgets(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
             val appCtx = context.applicationContext
-            val (title, subtitle, onBreak, chronoBaseElapsed) = runBlocking {
+            val (title, subtitle, onBreak, chronoBaseElapsed, nextGrantEpochMs) = runBlocking {
                 val prefs = FocusPreferences(appCtx)
                 val policy = AppDatabase.getInstance(appCtx).breakPolicyDao().get() ?: BreakPolicyEntity()
                 val mgr = BreakManager(appCtx, prefs)
@@ -151,7 +153,18 @@ class FocusWidgetReceiver : AppWidgetProvider() {
                     } else {
                         0L
                     }
-                WidgetUpdate(titleStr, subtitleStr, onBreakNow, chronoBase)
+                val nextGrant = BreakManager.nextGrantEpochMs(
+                    maxBreaksPerDay = policy.maxBreaksPerDay,
+                    nowEpochMs = nowWall,
+                    zoneId = ZoneId.systemDefault(),
+                )
+                WidgetUpdate(titleStr, subtitleStr, onBreakNow, chronoBase, nextGrant)
+            }
+            // Schedule a one-shot alarm at the next grant unlock time so the widget count
+            // updates the moment new breaks become available, not just on the 30-min heartbeat.
+            if (nextGrantEpochMs != null) {
+                val am = appCtx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC, nextGrantEpochMs, refreshPendingIntent(appCtx))
             }
             val views = RemoteViews(appCtx.packageName, R.layout.widget_focus).apply {
                 setTextViewText(R.id.widget_title, title)
