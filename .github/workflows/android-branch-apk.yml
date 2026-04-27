@@ -72,6 +72,11 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          # Cloud-sync defaults baked into the APK so installs don't need in-app token entry.
+          # Both secrets are optional: if either is unset, BuildConfig falls back to "" and the
+          # in-app Cloud sync screen will require manual entry instead.
+          SAFEPHONE_CLOUD_SYNC_DEFAULT_GITHUB_TOKEN: ${{ secrets.CLOUD_SYNC_DEFAULT_GITHUB_TOKEN }}
+          SAFEPHONE_CLOUD_SYNC_DEFAULT_GIST_ID: ${{ secrets.CLOUD_SYNC_DEFAULT_GIST_ID }}
         run: |
           ./gradlew :app:assembleInternalRelease --no-daemon \
             -PappVersionCode="${{ github.run_number }}" \

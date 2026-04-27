@@ -53,6 +53,7 @@ import androidx.compose.material.icons.outlined.Coffee
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -115,6 +116,8 @@ import com.safephone.data.DomainRuleEntity
 import com.safephone.data.SocialMediaCategory
 import com.safephone.github.VibeCodingGitHub
 import java.time.DayOfWeek
+import com.safephone.cloud.CloudSyncStatus
+import com.safephone.cloud.SyncDirection
 import com.safephone.export.RulesExporter
 import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
@@ -230,6 +233,11 @@ class MainActivity : ComponentActivity() {
                     composable("export") {
                         FeatureScaffold(nav, "Export rules") { padding ->
                             ExportRoute(app, Modifier.padding(padding))
+                        }
+                    }
+                    composable("cloud_sync") {
+                        FeatureScaffold(nav, "Cloud sync") { padding ->
+                            CloudSyncRoute(app, Modifier.padding(padding))
                         }
                     }
                     composable("block_stats") {
@@ -450,6 +458,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
         HomeDestination("weekday_schedule", "Weekday schedule", "Days when rules apply", Icons.Outlined.CalendarMonth),
         HomeDestination("breaks", "Break policy", "How breaks work", Icons.Outlined.Coffee),
         HomeDestination("export", "Export rules", "Share JSON backup", Icons.Outlined.UploadFile),
+        HomeDestination("cloud_sync", "Cloud sync", "Back up policy to a GitHub Gist", Icons.Outlined.CloudSync),
         HomeDestination(
             "system_grayscale",
             "Grayscale display",
@@ -478,6 +487,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             "weekday_schedule" to SafePhoneTestTags.HOME_NAV_WEEKDAY_SCHEDULE,
             "breaks" to SafePhoneTestTags.HOME_NAV_BREAKS,
             "export" to SafePhoneTestTags.HOME_NAV_EXPORT,
+            "cloud_sync" to SafePhoneTestTags.HOME_NAV_CLOUD_SYNC,
             "system_grayscale" to SafePhoneTestTags.HOME_NAV_SYSTEM_GRAYSCALE,
             "vibe_coding" to SafePhoneTestTags.HOME_NAV_VIBE_CODING,
         )
@@ -1925,4 +1935,206 @@ private fun ExportRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+@Composable
+private fun CloudSyncRoute(app: SafePhoneApp, modifier: Modifier = Modifier) {
+    val cloudPrefs = app.cloudSyncPrefs
+    val manager = app.cloudSyncManager
+    val scope = rememberCoroutineScope()
+
+    // Bind input fields to the user-entered values (no BuildConfig fallback) so a baked-in default
+    // token never appears in cleartext in the password field. The resolved values that include the
+    // fallback are used only for the enabled-state of the action buttons.
+    val userToken by cloudPrefs.userEnteredGitHubToken.collectAsState(initial = "")
+    val userGistId by cloudPrefs.userEnteredGistId.collectAsState(initial = "")
+    val autoPull by cloudPrefs.autoPullOnLaunch.collectAsState(initial = true)
+    val autoPush by cloudPrefs.autoPushOnChange.collectAsState(initial = true)
+    val lastSyncMs by cloudPrefs.lastSyncEpochMs.collectAsState(initial = 0L)
+    val lastSyncDir by cloudPrefs.lastSyncDirection.collectAsState(initial = "")
+    val lastSyncMsg by cloudPrefs.lastSyncMessage.collectAsState(initial = "")
+    val status by manager.status.collectAsState()
+
+    var tokenDraft by remember(userToken) { mutableStateOf(userToken) }
+    var gistIdDraft by remember(userGistId) { mutableStateOf(userGistId) }
+
+    val tokenAvailable = tokenDraft.isNotBlank() || cloudPrefs.hasDefaultGitHubToken
+    val gistIdAvailable = gistIdDraft.isNotBlank() || cloudPrefs.hasDefaultGistId
+
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text(
+            "Save your full SafePhone policy (blocked apps, domain rules, daily budgets, break " +
+                "policy, calendar keywords, and related preferences) to a private GitHub Gist so " +
+                "you can sync it across your own devices.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "Create a Personal Access Token at github.com/settings/tokens with the \"gist\" scope, " +
+                "paste it here, then tap Push. The first push creates a private gist; subsequent " +
+                "pushes update it. On a new device, paste the same token plus the gist id and tap Pull.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        OutlinedTextField(
+            value = tokenDraft,
+            onValueChange = { tokenDraft = it },
+            label = { Text("GitHub Personal Access Token") },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(SafePhoneTestTags.CLOUD_SYNC_TOKEN_FIELD),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                capitalization = KeyboardCapitalization.None,
+            ),
+            supportingText = if (tokenDraft.isBlank() && cloudPrefs.hasDefaultGitHubToken) {
+                { Text("Using token baked into this build") }
+            } else {
+                null
+            },
+        )
+        OutlinedTextField(
+            value = gistIdDraft,
+            onValueChange = { gistIdDraft = it },
+            label = { Text("Gist id (leave empty to create on first push)") },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(SafePhoneTestTags.CLOUD_SYNC_GIST_ID_FIELD),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+            supportingText = if (gistIdDraft.isBlank() && cloudPrefs.hasDefaultGistId) {
+                { Text("Using gist id baked into this build") }
+            } else {
+                null
+            },
+        )
+
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    cloudPrefs.setGitHubToken(tokenDraft)
+                    cloudPrefs.setGistId(gistIdDraft)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = tokenDraft != userToken || gistIdDraft != userGistId,
+        ) { Text("Save credentials") }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Button(
+                onClick = {
+                    scope.launch {
+                        cloudPrefs.setGitHubToken(tokenDraft)
+                        cloudPrefs.setGistId(gistIdDraft)
+                        manager.pushNow()
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(SafePhoneTestTags.CLOUD_SYNC_PUSH),
+                enabled = status !is CloudSyncStatus.InProgress && tokenAvailable,
+            ) { Text("Push to cloud") }
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        cloudPrefs.setGitHubToken(tokenDraft)
+                        cloudPrefs.setGistId(gistIdDraft)
+                        manager.pullNow()
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(SafePhoneTestTags.CLOUD_SYNC_PULL),
+                enabled = status !is CloudSyncStatus.InProgress &&
+                    tokenAvailable &&
+                    gistIdAvailable,
+            ) { Text("Pull from cloud") }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        ) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Auto-pull on app launch", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = autoPull,
+                        onCheckedChange = { v -> scope.launch { cloudPrefs.setAutoPullOnLaunch(v) } },
+                        modifier = Modifier.testTag(SafePhoneTestTags.CLOUD_SYNC_AUTO_PULL_TOGGLE),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Auto-push on policy change", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = autoPush,
+                        onCheckedChange = { v -> scope.launch { cloudPrefs.setAutoPushOnChange(v) } },
+                        modifier = Modifier.testTag(SafePhoneTestTags.CLOUD_SYNC_AUTO_PUSH_TOGGLE),
+                    )
+                }
+            }
+        }
+
+        val statusText = renderCloudSyncStatus(status, lastSyncMs, lastSyncDir, lastSyncMsg)
+        Text(
+            statusText,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag(SafePhoneTestTags.CLOUD_SYNC_STATUS_TEXT),
+        )
+    }
+}
+
+private fun renderCloudSyncStatus(
+    status: CloudSyncStatus,
+    lastSyncMs: Long,
+    lastSyncDir: String,
+    lastSyncMsg: String,
+): String {
+    val current = when (status) {
+        is CloudSyncStatus.Idle -> "Idle"
+        is CloudSyncStatus.InProgress -> when (status.direction) {
+            SyncDirection.Pull -> "Pulling…"
+            SyncDirection.Push -> "Pushing…"
+        }
+        is CloudSyncStatus.Success -> when (status.direction) {
+            SyncDirection.Pull -> "Pull OK: ${status.message}"
+            SyncDirection.Push -> "Push OK: ${status.message}"
+        }
+        is CloudSyncStatus.Failure -> "Failed: ${status.message}"
+    }
+    val tail = if (lastSyncMs > 0L) {
+        val ago = System.currentTimeMillis() - lastSyncMs
+        val minutes = (ago / 60_000L).coerceAtLeast(0)
+        val pretty = when {
+            ago < 30_000L -> "just now"
+            minutes < 60 -> "$minutes min ago"
+            minutes < 60 * 24 -> "${minutes / 60}h ago"
+            else -> "${minutes / (60 * 24)}d ago"
+        }
+        "Last $lastSyncDir: $pretty${if (lastSyncMsg.isNotBlank()) " — $lastSyncMsg" else ""}"
+    } else {
+        "No sync yet"
+    }
+    return "$current\n$tail"
 }

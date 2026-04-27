@@ -1,2 +1,17 @@
 # Copy to local.properties and set your Android SDK path.
 sdk.dir=/path/to/Android/sdk
+
+# Cloud-sync defaults (GitHub Gist token + gist id) are normally injected by CI
+# from GitHub Actions secrets — see .github/workflows/android-branch-apk.yml and
+# the CLOUD_SYNC_DEFAULT_GITHUB_TOKEN / CLOUD_SYNC_DEFAULT_GIST_ID repo secrets.
+# Production APKs built by CD already have them baked into BuildConfig, so devices
+# never need to enter a token in the UI.
+#
+# The two lines below are only useful if you want to test a locally-built APK
+# without going through CI. They MUST live in `local.properties` (gitignored),
+# never in this `*.example` file. Anyone with the resulting APK can extract
+# whatever token you bake in, so use a short-lived fine-grained PAT with only
+# the "Gists" permission and revoke it as soon as the APK leaves your machine.
+#
+# safephone.cloudSyncDefaultGitHubToken=github_pat_xxx
+# safephone.cloudSyncDefaultGistId=abc123def456

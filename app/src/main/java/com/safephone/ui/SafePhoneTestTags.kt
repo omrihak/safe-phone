@@ -46,4 +46,12 @@ object SafePhoneTestTags {
     const val EXPORT_GENERATE = "export_generate"
     const val EXPORT_SHARE = "export_share"
     const val EXPORT_JSON_TEXT = "export_json_text"
+    const val HOME_NAV_CLOUD_SYNC = "home_nav_cloud_sync"
+    const val CLOUD_SYNC_TOKEN_FIELD = "cloud_sync_token_field"
+    const val CLOUD_SYNC_GIST_ID_FIELD = "cloud_sync_gist_id_field"
+    const val CLOUD_SYNC_PUSH = "cloud_sync_push"
+    const val CLOUD_SYNC_PULL = "cloud_sync_pull"
+    const val CLOUD_SYNC_AUTO_PULL_TOGGLE = "cloud_sync_auto_pull_toggle"
+    const val CLOUD_SYNC_AUTO_PUSH_TOGGLE = "cloud_sync_auto_push_toggle"
+    const val CLOUD_SYNC_STATUS_TEXT = "cloud_sync_status_text"
 }
