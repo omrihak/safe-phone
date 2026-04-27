@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.safephone.data.FocusPreferences
 import com.safephone.update.InternalUpdateScheduler
+import com.safephone.widget.FocusWidgetReceiver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,6 +20,7 @@ class BootReceiver : BroadcastReceiver() {
             val appCtx = context.applicationContext
             FocusEnforcementService.start(appCtx)
             InternalUpdateScheduler.scheduleIfNeeded(appCtx)
+            FocusWidgetReceiver.scheduleRefreshAlarm(appCtx)
         }
     }
 }
