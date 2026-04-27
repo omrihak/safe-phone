@@ -37,39 +37,39 @@ class FocusWidgetReceiver : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action == ACTION_WIDGET_GRANT_ALARM) {
-            refreshAll(context)
-            return
-        }
-        if (intent?.action == ACTION_START_BREAK) {
-            val appCtx = context.applicationContext
-            runBlocking {
-                val prefs = FocusPreferences(appCtx)
-                val policy = AppDatabase.getInstance(appCtx).breakPolicyDao().get() ?: BreakPolicyEntity()
-                val mgr = BreakManager(appCtx, prefs)
-                when {
-                    mgr.isOnBreakNow() ->
-                        Toast.makeText(appCtx, appCtx.getString(R.string.widget_toast_already_on_break), Toast.LENGTH_SHORT).show()
-                    mgr.breaksRemainingToday(policy) <= 0 -> {
-                        val waitMinutes = mgr.minutesUntilNextGrant(policy)
-                        val msg =
-                            if (waitMinutes != null && waitMinutes > 0) {
-                                appCtx.getString(R.string.widget_toast_break_gap, waitMinutes)
-                            } else {
-                                appCtx.getString(R.string.widget_toast_no_breaks)
-                            }
-                        Toast.makeText(appCtx, msg, Toast.LENGTH_SHORT).show()
-                    }
-                    mgr.startBreak(policy.breakDurationMinutes, policy) -> {
-                        FocusEnforcementService.start(appCtx)
-                        Toast.makeText(appCtx, appCtx.getString(R.string.widget_toast_break_started), Toast.LENGTH_SHORT).show()
+        super.onReceive(context, intent)
+        when (intent?.action) {
+            ACTION_WIDGET_GRANT_ALARM -> {
+                refreshAll(context)
+            }
+            ACTION_START_BREAK -> {
+                val appCtx = context.applicationContext
+                runBlocking {
+                    val prefs = FocusPreferences(appCtx)
+                    val policy = AppDatabase.getInstance(appCtx).breakPolicyDao().get() ?: BreakPolicyEntity()
+                    val mgr = BreakManager(appCtx, prefs)
+                    when {
+                        mgr.isOnBreakNow() ->
+                            Toast.makeText(appCtx, appCtx.getString(R.string.widget_toast_already_on_break), Toast.LENGTH_SHORT).show()
+                        mgr.breaksRemainingToday(policy) <= 0 -> {
+                            val waitMinutes = mgr.minutesUntilNextGrant(policy)
+                            val msg =
+                                if (waitMinutes != null && waitMinutes > 0) {
+                                    appCtx.getString(R.string.widget_toast_break_gap, waitMinutes)
+                                } else {
+                                    appCtx.getString(R.string.widget_toast_no_breaks)
+                                }
+                            Toast.makeText(appCtx, msg, Toast.LENGTH_SHORT).show()
+                        }
+                        mgr.startBreak(policy.breakDurationMinutes, policy) -> {
+                            FocusEnforcementService.start(appCtx)
+                            Toast.makeText(appCtx, appCtx.getString(R.string.widget_toast_break_started), Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
+                refreshAll(context)
             }
-            refreshAll(context)
-            return
         }
-        super.onReceive(context, intent)
     }
 
     companion object {
