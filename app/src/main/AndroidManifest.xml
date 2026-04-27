@@ -98,6 +98,9 @@
             <intent-filter>
                 <action android:name="com.safephone.WIDGET_START_BREAK" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="com.safephone.WIDGET_GRANT_ALARM" />
+            </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/focus_widget_info" />

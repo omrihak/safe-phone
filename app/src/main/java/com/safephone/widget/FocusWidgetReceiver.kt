@@ -1,11 +1,13 @@
 package com.safephone.widget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
@@ -18,6 +20,7 @@ import com.safephone.service.BreakManager
 import com.safephone.service.FocusEnforcementService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import java.time.ZoneId
 
 class FocusWidgetReceiver : AppWidgetProvider() {
 
@@ -25,7 +28,19 @@ class FocusWidgetReceiver : AppWidgetProvider() {
         updateWidgets(context, appWidgetManager, appWidgetIds)
     }
 
+    override fun onEnabled(context: Context) {
+        scheduleNextGrantAlarm(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        cancelGrantAlarm(context)
+    }
+
     override fun onReceive(context: Context, intent: Intent?) {
+        if (intent?.action == ACTION_WIDGET_GRANT_ALARM) {
+            refreshAll(context)
+            return
+        }
         if (intent?.action == ACTION_START_BREAK) {
             val appCtx = context.applicationContext
             runBlocking {
@@ -59,12 +74,15 @@ class FocusWidgetReceiver : AppWidgetProvider() {
 
     companion object {
         const val ACTION_START_BREAK = "com.safephone.WIDGET_START_BREAK"
+        const val ACTION_WIDGET_GRANT_ALARM = "com.safephone.WIDGET_GRANT_ALARM"
+        private const val REQ_GRANT_ALARM = 1002
 
         private data class WidgetUpdate(
             val title: String,
             val subtitle: String,
             val onBreak: Boolean,
             val chronoBaseElapsed: Long,
+            val maxBreaksPerDay: Int,
         )
 
         fun refreshAll(context: Context) {
@@ -78,7 +96,7 @@ class FocusWidgetReceiver : AppWidgetProvider() {
 
         fun updateWidgets(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
             val appCtx = context.applicationContext
-            val (title, subtitle, onBreak, chronoBaseElapsed) = runBlocking {
+            val (title, subtitle, onBreak, chronoBaseElapsed, maxBreaksPerDay) = runBlocking {
                 val prefs = FocusPreferences(appCtx)
                 val policy = AppDatabase.getInstance(appCtx).breakPolicyDao().get() ?: BreakPolicyEntity()
                 val mgr = BreakManager(appCtx, prefs)
@@ -100,7 +118,7 @@ class FocusWidgetReceiver : AppWidgetProvider() {
                     } else {
                         0L
                     }
-                WidgetUpdate(titleStr, subtitleStr, onBreakNow, chronoBase)
+                WidgetUpdate(titleStr, subtitleStr, onBreakNow, chronoBase, policy.maxBreaksPerDay)
             }
             val views = RemoteViews(appCtx.packageName, R.layout.widget_focus).apply {
                 setTextViewText(R.id.widget_title, title)
@@ -126,6 +144,49 @@ class FocusWidgetReceiver : AppWidgetProvider() {
             for (id in appWidgetIds) {
                 appWidgetManager.updateAppWidget(id, views)
             }
+            scheduleNextGrantAlarm(appCtx, maxBreaksPerDay)
+        }
+
+        fun scheduleNextGrantAlarm(context: Context) {
+            val appCtx = context.applicationContext
+            val maxBreaksPerDay = runBlocking {
+                AppDatabase.getInstance(appCtx).breakPolicyDao().get()?.maxBreaksPerDay
+                    ?: BreakPolicyEntity().maxBreaksPerDay
+            }
+            scheduleNextGrantAlarm(appCtx, maxBreaksPerDay)
+        }
+
+        private fun scheduleNextGrantAlarm(context: Context, maxBreaksPerDay: Int) {
+            val appCtx = context.applicationContext
+            val alarmMgr = appCtx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(appCtx, FocusWidgetReceiver::class.java).setAction(ACTION_WIDGET_GRANT_ALARM)
+            val pi = PendingIntent.getBroadcast(
+                appCtx,
+                REQ_GRANT_ALARM,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            alarmMgr.cancel(pi)
+            val nextGrantMs = BreakManager.nextGrantEpochMs(maxBreaksPerDay, System.currentTimeMillis(), ZoneId.systemDefault())
+                ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                alarmMgr.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextGrantMs, pi)
+            } else {
+                alarmMgr.setExact(AlarmManager.RTC_WAKEUP, nextGrantMs, pi)
+            }
+        }
+
+        private fun cancelGrantAlarm(context: Context) {
+            val appCtx = context.applicationContext
+            val alarmMgr = appCtx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(appCtx, FocusWidgetReceiver::class.java).setAction(ACTION_WIDGET_GRANT_ALARM)
+            val pi = PendingIntent.getBroadcast(
+                appCtx,
+                REQ_GRANT_ALARM,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            alarmMgr.cancel(pi)
         }
     }
 }
