@@ -3,11 +3,13 @@ package com.safephone.cloud
 import com.safephone.data.AppDatabase
 import com.safephone.data.CloudSyncPreferences
 import com.safephone.data.FocusPreferences
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -26,13 +29,15 @@ import kotlinx.coroutines.sync.withLock
  *
  * Key behaviours:
  *  - [pullNow] / [pushNow] are user-initiated; both update [status] for UI feedback.
- *  - [start] launches a long-running observer that watches every synced field and pushes a debounced
- *    snapshot when "auto-push on change" is enabled.
- *  - [pullOnLaunchIfEnabled] is meant to run once after process start, before the user touches the UI.
+ *  - [start] launches two long-running jobs: an auto-push observer that watches every synced field
+ *    and pushes a debounced snapshot, and a periodic auto-pull poller that detects changes made on
+ *    other devices and applies them locally.
+ *  - [pullOnLaunchIfEnabled] is meant to run once after process start, before the periodic poller.
  *  - All push paths skip a write when the captured snapshot is byte-identical to the last known
  *    remote payload, so noisy Flow emissions don't spam GitHub.
- *  - During [pullNow] we set a watermark that suppresses the auto-push observer so the writes from
- *    [PolicySnapshotRepository.apply] don't immediately bounce back as a new push.
+ *  - When applying a remote snapshot (manual pull or auto-pull) we set a watermark that suppresses
+ *    the auto-push observer so the writes from [PolicySnapshotRepository.apply] don't immediately
+ *    bounce back as a new push.
  */
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class CloudSyncManager(
@@ -43,12 +48,14 @@ class CloudSyncManager(
     private val snapshotRepo: PolicySnapshotRepository = PolicySnapshotRepository(db, focusPrefs),
     private val gistClientFactory: (String) -> GistClient = ::GistClient,
     private val nowMs: () -> Long = System::currentTimeMillis,
+    private val autoPullPollIntervalMs: Long = DEFAULT_AUTO_PULL_INTERVAL_MS,
 ) {
     private val scope = CoroutineScope(parentScope.coroutineContext + SupervisorJob())
     private val pushMutex = Mutex()
     private val pullMutex = Mutex()
 
     @Volatile private var observerJob: Job? = null
+    @Volatile private var autoPullJob: Job? = null
     @Volatile private var lastUploadedJson: String? = null
     @Volatile private var suppressAutoPushUntilMs: Long = 0L
 
@@ -57,49 +64,66 @@ class CloudSyncManager(
 
     private val daos = SyncedDaos(db)
 
-    /** Starts the change-observer. Safe to call multiple times — second call is a no-op. */
+    /** Starts the auto-push observer + periodic auto-pull poller. Safe to call multiple times. */
     fun start() {
-        if (observerJob != null) return
-        observerJob = scope.launch {
-            // Combine every observable input that contributes to the policy. Any change emits.
-            val sources: List<Flow<Any?>> = listOf(
-                daos.profiles,
-                daos.blockedApps,
-                daos.domainRules,
-                daos.appBudgets,
-                daos.breakPolicy,
-                daos.calendarKeywords,
-                focusPrefs.enforcementEnabled,
-                focusPrefs.activeProfileId,
-                focusPrefs.aggressivePoll,
-                focusPrefs.notificationHints,
-                focusPrefs.calendarAware,
-                focusPrefs.mindfulFrictionPackages,
-                focusPrefs.systemMonochromeAutomationEnabled,
-                focusPrefs.socialMediaCategoryBlocked,
-                focusPrefs.partnerBlockAlertEnabled,
-                focusPrefs.partnerBlockAlertThreshold,
-                focusPrefs.partnerAlertPhoneDigits,
-                focusPrefs.activeDaysOfWeek,
-            )
-            combine(sources) { _ -> Unit }
-                .drop(1) // skip the snapshot emitted on subscription
-                .debounce(AUTO_PUSH_DEBOUNCE_MS)
-                .mapLatest { _ ->
-                    val snap = cloudPrefs.snapshot()
-                    val autoPush = cloudPrefs.autoPushOnChange.first()
-                    if (!autoPush || !snap.isConfigured) return@mapLatest
-                    if (nowMs() < suppressAutoPushUntilMs) return@mapLatest
-                    pushNowInternal(reason = SyncTrigger.Auto)
+        if (observerJob == null) {
+            observerJob = scope.launch {
+                // Combine every observable input that contributes to the policy. Any change emits.
+                val sources: List<Flow<Any?>> = listOf(
+                    daos.profiles,
+                    daos.blockedApps,
+                    daos.domainRules,
+                    daos.appBudgets,
+                    daos.breakPolicy,
+                    daos.calendarKeywords,
+                    focusPrefs.enforcementEnabled,
+                    focusPrefs.activeProfileId,
+                    focusPrefs.aggressivePoll,
+                    focusPrefs.notificationHints,
+                    focusPrefs.calendarAware,
+                    focusPrefs.mindfulFrictionPackages,
+                    focusPrefs.systemMonochromeAutomationEnabled,
+                    focusPrefs.socialMediaCategoryBlocked,
+                    focusPrefs.partnerBlockAlertEnabled,
+                    focusPrefs.partnerBlockAlertThreshold,
+                    focusPrefs.partnerAlertPhoneDigits,
+                    focusPrefs.activeDaysOfWeek,
+                )
+                combine(sources) { _ -> Unit }
+                    .drop(1) // skip the snapshot emitted on subscription
+                    .debounce(AUTO_PUSH_DEBOUNCE_MS)
+                    .mapLatest { _ ->
+                        val snap = cloudPrefs.snapshot()
+                        val autoPush = cloudPrefs.autoPushOnChange.first()
+                        if (!autoPush || !snap.isConfigured) return@mapLatest
+                        if (nowMs() < suppressAutoPushUntilMs) return@mapLatest
+                        pushNowInternal(reason = SyncTrigger.Auto)
+                    }
+                    .collect { /* side effects only */ }
+            }
+        }
+        if (autoPullJob == null) {
+            autoPullJob = scope.launch {
+                while (isActive) {
+                    delay(autoPullPollIntervalMs)
+                    try {
+                        autoPullIfRemoteChanged()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // Swallow transient network/parse errors; the next tick will retry.
+                    }
                 }
-                .collect { /* side effects only */ }
+            }
         }
     }
 
-    /** Cancels the change-observer (e.g. when the process scope is being torn down in tests). */
+    /** Cancels the auto-push observer + auto-pull poller (e.g. when tearing down in tests). */
     fun stop() {
         observerJob?.cancel()
         observerJob = null
+        autoPullJob?.cancel()
+        autoPullJob = null
     }
 
     suspend fun pullOnLaunchIfEnabled() {
@@ -107,6 +131,29 @@ class CloudSyncManager(
         if (!snap.isConfigured || !snap.autoPullOnLaunch) return
         if (snap.gistId.isBlank()) return
         pullNow()
+    }
+
+    /**
+     * Reads the configured gist and applies it locally only when its serialized content differs
+     * from [lastUploadedJson] (i.e. some other device has written a new snapshot since our last
+     * push or pull). Quietly does nothing when sync is unconfigured, the read fails, or the
+     * payload is unchanged — the caller polls this on a timer so any failure is implicitly retried.
+     */
+    private suspend fun autoPullIfRemoteChanged(): Unit = pullMutex.withLock {
+        val snap = cloudPrefs.snapshot()
+        if (!snap.isConfigured || snap.gistId.isBlank()) return@withLock
+        val client = gistClientFactory(snap.gitHubToken)
+        val res = client.readGist(snap.gistId)
+        if (res !is GistClient.GistResult.Success) return@withLock
+        val remoteContent = res.value.content
+        if (remoteContent == lastUploadedJson) return@withLock
+        val parsed = snapshotRepo.fromJson(remoteContent) ?: return@withLock
+        // Suppress the auto-push observer so the writes from apply() don't bounce back as a push.
+        suppressAutoPushUntilMs = nowMs() + APPLY_SUPPRESS_MS
+        val applyResult = snapshotRepo.apply(parsed)
+        if (applyResult is PolicySnapshotRepository.ApplyResult.SchemaTooNew) return@withLock
+        lastUploadedJson = remoteContent
+        cloudPrefs.recordSyncResult(nowMs(), DIR_PULL, "Auto-pulled snapshot")
     }
 
     suspend fun pullNow(): CloudSyncStatus = pullMutex.withLock {
@@ -218,6 +265,7 @@ class CloudSyncManager(
     companion object {
         private const val AUTO_PUSH_DEBOUNCE_MS = 5_000L
         private const val APPLY_SUPPRESS_MS = 10_000L
+        private const val DEFAULT_AUTO_PULL_INTERVAL_MS = 60_000L
         private const val DIR_PUSH = "push"
         private const val DIR_PULL = "pull"
     }

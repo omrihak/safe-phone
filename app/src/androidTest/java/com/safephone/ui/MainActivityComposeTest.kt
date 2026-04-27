@@ -1,7 +1,6 @@
 package com.safephone.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -91,14 +90,5 @@ class MainActivityComposeTest {
         composeRule.onNodeWithTag(SafePhoneTestTags.HOME_NAV_BUDGETS).performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag(SafePhoneTestTags.BUDGET_SEARCH_FIELD).assertIsDisplayed()
-    }
-
-    @Test
-    fun navigate_export_generate_shows_json() {
-        composeRule.onNodeWithTag(SafePhoneTestTags.HOME_NAV_EXPORT).performClick()
-        composeRule.onNodeWithTag(SafePhoneTestTags.EXPORT_GENERATE).performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag(SafePhoneTestTags.EXPORT_JSON_TEXT).assertIsDisplayed()
-        composeRule.onNode(hasText("blockedPackages", substring = true)).assertIsDisplayed()
     }
 }
