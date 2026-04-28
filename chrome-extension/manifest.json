@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "SafePhone",
+  "version": "0.1.0",
+  "description": "Enforces the same domain-blocking policy synced via GitHub Gist by the SafePhone Android app, with a local 'take a break' flow.",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "storage",
+    "alarms",
+    "declarativeNetRequest",
+    "webNavigation",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/ui/popup.html",
+    "default_title": "SafePhone"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/ui/blocked.html",
+        "src/ui/blocked.js",
+        "src/ui/common.css"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

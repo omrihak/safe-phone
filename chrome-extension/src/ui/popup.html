@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SafePhone</title>
+    <link rel="stylesheet" href="common.css" />
+    <style>
+      body {
+        width: 320px;
+        padding: 14px;
+      }
+      h1 {
+        font-size: 16px;
+        margin: 0 0 8px;
+      }
+      .field {
+        font-size: 13px;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+      .actions button {
+        flex: 1;
+      }
+      #status {
+        font-size: 12px;
+        min-height: 1.2em;
+      }
+      #status.error {
+        color: var(--danger);
+      }
+    </style>
+  </head>
+  <body class="stack">
+    <header class="row">
+      <h1>SafePhone</h1>
+      <span id="state-pill" class="status-pill idle">…</span>
+    </header>
+
+    <section class="card stack">
+      <div class="row field">
+        <span class="muted">Active profile</span>
+        <span id="profile">—</span>
+      </div>
+      <div class="row field">
+        <span class="muted">Blocked patterns</span>
+        <span id="rules-count">—</span>
+      </div>
+      <div class="row field">
+        <span class="muted">Breaks remaining today</span>
+        <span id="remaining">—</span>
+      </div>
+      <div class="row field" id="next-grant-row" hidden>
+        <span class="muted">Next break unlocks in</span>
+        <span id="next-grant">—</span>
+      </div>
+      <div class="row field">
+        <span class="muted">Last sync</span>
+        <span id="last-sync">—</span>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button id="break-btn">Take a break</button>
+      <button id="end-break-btn" class="danger" hidden>End break</button>
+      <button id="pull-btn" class="secondary">Pull now</button>
+    </div>
+    <p id="status" class="muted"></p>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

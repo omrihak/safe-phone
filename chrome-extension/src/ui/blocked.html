@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blocked by SafePhone</title>
+    <link rel="stylesheet" href="common.css" />
+    <style>
+      .page {
+        max-width: 540px;
+        margin: 8vh auto;
+        padding: 0 20px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0 0 4px;
+      }
+      .host {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: rgba(0, 0, 0, 0.05);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      @media (prefers-color-scheme: dark) {
+        .host {
+          background: rgba(255, 255, 255, 0.08);
+        }
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+      .reason {
+        margin: 8px 0 0;
+      }
+      .meta {
+        font-size: 13px;
+        margin-top: 16px;
+      }
+      #status {
+        margin-top: 12px;
+        font-size: 13px;
+      }
+      #status.error {
+        color: var(--danger);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page stack">
+      <header>
+        <h1>Blocked by SafePhone</h1>
+        <p class="reason muted">
+          You tried to open <span id="host" class="host">…</span>, which matches a domain rule on
+          your synced policy.
+        </p>
+      </header>
+
+      <section class="card stack">
+        <div class="row">
+          <strong>Pattern</strong>
+          <span id="pattern" class="host muted">…</span>
+        </div>
+        <div class="row">
+          <strong>Profile</strong>
+          <span id="profile" class="muted">…</span>
+        </div>
+        <div class="row">
+          <strong>Breaks remaining today</strong>
+          <span id="remaining" class="muted">…</span>
+        </div>
+        <div id="next-grant" class="meta muted" hidden></div>
+      </section>
+
+      <div class="actions">
+        <button id="break-btn" disabled>Take a break</button>
+        <button id="back-btn" class="secondary">Go back</button>
+      </div>
+      <p id="status" class="muted"></p>
+    </main>
+
+    <script type="module" src="blocked.js"></script>
+  </body>
+</html>

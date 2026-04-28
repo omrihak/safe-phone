@@ -7,6 +7,12 @@ sdk.dir=/path/to/Android/sdk
 # .github/workflows/android-branch-apk.yml). Without these set, the app silently
 # skips both the auto-push observer and the periodic auto-pull poller.
 #
+# The Chrome extension under chrome-extension/ consumes the SAME two values
+# (env vars SAFEPHONE_CLOUD_SYNC_DEFAULT_GITHUB_TOKEN / SAFEPHONE_CLOUD_SYNC_DEFAULT_GIST_ID).
+# Locally you can copy your values out of local.properties and run
+# `npm run build:config` from chrome-extension/ to bake them into
+# chrome-extension/src/generated/config.js (gitignored).
+#
 # The two lines below are only useful if you want to test a locally-built APK
 # without going through CI. They MUST live in `local.properties` (gitignored),
 # never in this `*.example` file. Anyone with the resulting APK can extract

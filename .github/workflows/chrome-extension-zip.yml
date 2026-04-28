@@ -1,0 +1,84 @@
+name: Chrome extension zip (branch)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "chrome-extension/**"
+      - ".github/workflows/chrome-extension-zip.yml"
+
+concurrency:
+  group: chrome-extension-zip-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: chrome-extension
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sanitize branch ref for release tag suffix
+        id: track
+        run: |
+          ref="${GITHUB_REF_NAME}"
+          sanitized=$(printf '%s' "$ref" | tr -c 'a-zA-Z0-9._-' '-' | cut -c1-120)
+          {
+            echo "sanitized=${sanitized}"
+            echo "tag=internal-${sanitized}"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: chrome-extension/package-lock.json
+
+      - name: Install
+        run: npm ci || npm install
+
+      - name: Test
+        run: npm test
+
+      - name: Bake credentials into config.js
+        env:
+          # Same repo secrets the Android workflow consumes; keeps gist
+          # credentials in one place.
+          SAFEPHONE_CLOUD_SYNC_DEFAULT_GITHUB_TOKEN: ${{ secrets.CLOUD_SYNC_DEFAULT_GITHUB_TOKEN }}
+          SAFEPHONE_CLOUD_SYNC_DEFAULT_GIST_ID: ${{ secrets.CLOUD_SYNC_DEFAULT_GIST_ID }}
+        run: npm run build:config
+
+      - name: Package
+        run: npm run package
+
+      - name: Upload zip as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension-${{ steps.track.outputs.sanitized }}-${{ github.run_number }}
+          path: chrome-extension/dist/safephone-chrome-extension.zip
+
+      - name: Publish to existing GitHub Release alongside the APK
+        if: ${{ github.repository != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          TAG="${{ steps.track.outputs.tag }}"
+          zip="chrome-extension/dist/safephone-chrome-extension.zip"
+          # Reuse the same internal-<branch> release the APK workflow publishes
+          # to. If the release doesn't exist yet (extension built before APK on
+          # a fresh branch), create it as a prerelease.
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "Internal: ${{ github.ref_name }}" \
+              --notes "Automated internal artifacts for \`${{ github.ref_name }}\`. CI reuses tag \`$TAG\`; assets are replaced on each push." \
+              --prerelease
+          fi
+          gh release upload "$TAG" "$zip" --clobber --repo "${{ github.repository }}"
