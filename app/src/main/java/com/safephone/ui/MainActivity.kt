@@ -1692,13 +1692,14 @@ private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        var hourRangeError by remember { mutableStateOf(false) }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             OutlinedTextField(
                 value = localStartHour,
-                onValueChange = { localStartHour = it.filter { ch -> ch.isDigit() }.take(2) },
+                onValueChange = { localStartHour = it.filter { c -> c.isDigit() }.take(2) },
                 modifier = Modifier.width(80.dp),
                 label = { Text("Start") },
                 placeholder = { Text("0") },
@@ -1708,7 +1709,7 @@ private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
             Text("to", style = MaterialTheme.typography.bodyMedium)
             OutlinedTextField(
                 value = localEndHour,
-                onValueChange = { localEndHour = it.filter { ch -> ch.isDigit() }.take(2) },
+                onValueChange = { localEndHour = it.filter { c -> c.isDigit() }.take(2) },
                 modifier = Modifier.width(80.dp),
                 label = { Text("End") },
                 placeholder = { Text("24") },
@@ -1719,14 +1720,26 @@ private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
                 onClick = {
                     val start = localStartHour.toIntOrNull()?.coerceIn(0, 23) ?: 0
                     val end = localEndHour.toIntOrNull()?.coerceIn(1, 24) ?: 24
-                    scope.launch {
-                        prefs.setScheduleStartHour(start)
-                        prefs.setScheduleEndHour(end)
+                    if (start >= end) {
+                        hourRangeError = true
+                    } else {
+                        hourRangeError = false
+                        scope.launch {
+                            prefs.setScheduleStartHour(start)
+                            prefs.setScheduleEndHour(end)
+                        }
                     }
                 },
             ) {
                 Text("Save", style = MaterialTheme.typography.labelLarge)
             }
+        }
+        if (hourRangeError) {
+            Text(
+                "⚠ Start hour must be less than end hour.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
         val startHour = scheduleStartHour.coerceIn(0, 23)
         val endHour = scheduleEndHour.coerceIn(1, 24)
@@ -1738,7 +1751,7 @@ private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
             )
         } else {
             Text(
-                "Rules enforce from %02d:00 to %02d:00.".format(startHour, endHour % 24),
+                "Rules enforce from %02d:00 to %02d:00.".format(startHour, endHour),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
