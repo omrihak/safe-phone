@@ -1699,7 +1699,7 @@ private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
         ) {
             OutlinedTextField(
                 value = localStartHour,
-                onValueChange = { localStartHour = it.filter { c -> c.isDigit() }.take(2) },
+                onValueChange = { localStartHour = it.filter { char -> char.isDigit() }.take(2) },
                 modifier = Modifier.width(80.dp),
                 label = { Text("Start") },
                 placeholder = { Text("0") },
@@ -1709,7 +1709,7 @@ private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
             Text("to", style = MaterialTheme.typography.bodyMedium)
             OutlinedTextField(
                 value = localEndHour,
-                onValueChange = { localEndHour = it.filter { c -> c.isDigit() }.take(2) },
+                onValueChange = { localEndHour = it.filter { char -> char.isDigit() }.take(2) },
                 modifier = Modifier.width(80.dp),
                 label = { Text("End") },
                 placeholder = { Text("24") },
