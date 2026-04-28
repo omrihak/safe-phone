@@ -128,6 +128,7 @@ async function applyDynamicRules(patterns) {
 async function reloadBlockedTabs(patterns) {
   if (!patterns || patterns.length === 0) return;
   const tabs = await chrome.tabs.query({});
+  const reloads = [];
   for (const tab of tabs) {
     if (!tab.url) continue;
     let url;
@@ -138,9 +139,10 @@ async function reloadBlockedTabs(patterns) {
     }
     if (url.protocol !== "http:" && url.protocol !== "https:") continue;
     if (domainBlocked(url.hostname, patterns)) {
-      chrome.tabs.reload(tab.id);
+      reloads.push(chrome.tabs.reload(tab.id));
     }
   }
+  await Promise.allSettled(reloads);
 }
 
 async function startBreak() {
@@ -174,7 +176,7 @@ async function endBreakEarly() {
   await breakStore.set(next);
   await chrome.alarms.clear(BreakConsts.ALARM_NAME);
   const decision = await applyDecisionFromCache();
-  await reloadBlockedTabs(decision.enforcing ? decision.blockedPatterns : []);
+  await reloadBlockedTabs(decision?.enforcing ? decision.blockedPatterns : []);
   return { ok: true };
 }
 
@@ -194,7 +196,7 @@ async function endBreakDueToAlarm() {
     lastBreakEndedEpochMs: Date.now(),
   });
   const decision = await applyDecisionFromCache();
-  await reloadBlockedTabs(decision.enforcing ? decision.blockedPatterns : []);
+  await reloadBlockedTabs(decision?.enforcing ? decision.blockedPatterns : []);
 }
 
 async function collectStatus() {
