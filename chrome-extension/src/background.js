@@ -10,6 +10,7 @@
 import { PolicyStore, pullPolicy } from "./sync/policyStore.js";
 import { evaluatePolicy } from "./policy/policyEvaluator.js";
 import { buildDynamicRules } from "./rules/ruleBuilder.js";
+import { domainBlocked } from "./policy/domainMatcher.js";
 import {
   BreakStore,
   BreakConsts,
@@ -121,6 +122,27 @@ async function applyDynamicRules(patterns) {
   });
 }
 
+// After blocking rules are restored (break ended), reload any open tabs that
+// are currently on a blocked domain so the declarativeNetRequest redirect takes
+// effect immediately rather than waiting for the next navigation.
+async function reloadBlockedTabs(patterns) {
+  if (!patterns || patterns.length === 0) return;
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (!tab.url) continue;
+    let url;
+    try {
+      url = new URL(tab.url);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") continue;
+    if (domainBlocked(url.hostname, patterns)) {
+      chrome.tabs.reload(tab.id);
+    }
+  }
+}
+
 async function startBreak() {
   const snapshot = await policyStore.getSnapshot();
   if (!snapshot) {
@@ -151,7 +173,8 @@ async function endBreakEarly() {
   const next = computeEndBreakEarly({ state, nowMs: Date.now(), tz });
   await breakStore.set(next);
   await chrome.alarms.clear(BreakConsts.ALARM_NAME);
-  await applyDecisionFromCache();
+  const decision = await applyDecisionFromCache();
+  await reloadBlockedTabs(decision.enforcing ? decision.blockedPatterns : []);
   return { ok: true };
 }
 
@@ -170,7 +193,8 @@ async function endBreakDueToAlarm() {
     breakDayEpochDay: state.breakDayEpochDay ?? 0,
     lastBreakEndedEpochMs: Date.now(),
   });
-  await applyDecisionFromCache();
+  const decision = await applyDecisionFromCache();
+  await reloadBlockedTabs(decision.enforcing ? decision.blockedPatterns : []);
 }
 
 async function collectStatus() {
