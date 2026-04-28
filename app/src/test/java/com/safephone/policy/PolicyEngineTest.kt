@@ -431,4 +431,71 @@ class PolicyEngineTest {
         assertFalse(d.enforcing)
         assertFalse(d.blockApp)
     }
+
+    // --- Hour schedule ---
+
+    @Test
+    fun within_schedule_hours_enforces_rules() {
+        // Pin to a known hour (noon) using a fixed instant in the test zone
+        val localNoon = java.time.LocalDateTime.of(2024, 6, 3, 12, 0) // Monday 12:00
+        val now = localNoon.atZone(zone).toInstant()
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.bad.game",
+            blocked = setOf("com.bad.game"),
+        ).copy(scheduleStartHour = 9, scheduleEndHour = 17)
+        val d = PolicyEngine.evaluate(input)
+        assertTrue(d.blockApp)
+    }
+
+    @Test
+    fun before_schedule_start_returns_idle() {
+        val localEarly = java.time.LocalDateTime.of(2024, 6, 3, 7, 0) // Monday 07:00
+        val now = localEarly.atZone(zone).toInstant()
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.bad.game",
+            blocked = setOf("com.bad.game"),
+        ).copy(scheduleStartHour = 9, scheduleEndHour = 17)
+        val d = PolicyEngine.evaluate(input)
+        assertFalse(d.enforcing)
+        assertFalse(d.blockApp)
+        assertTrue(d.reason.contains("Outside schedule hours", ignoreCase = true))
+    }
+
+    @Test
+    fun after_schedule_end_returns_idle() {
+        val localEvening = java.time.LocalDateTime.of(2024, 6, 3, 18, 0) // Monday 18:00
+        val now = localEvening.atZone(zone).toInstant()
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.bad.game",
+            blocked = setOf("com.bad.game"),
+        ).copy(scheduleStartHour = 9, scheduleEndHour = 17)
+        val d = PolicyEngine.evaluate(input)
+        assertFalse(d.enforcing)
+        assertFalse(d.blockApp)
+        assertTrue(d.reason.contains("Outside schedule hours", ignoreCase = true))
+    }
+
+    @Test
+    fun default_hours_zero_to_24_enforce_all_day() {
+        val localNoon = java.time.LocalDateTime.of(2024, 6, 3, 12, 0) // Monday 12:00
+        val now = localNoon.atZone(zone).toInstant()
+        val profile = FocusProfileEntity(id = 1, name = "P", preset = "WORK_HOURS")
+        val input = baseInput(
+            now = now,
+            profile = profile,
+            fg = "com.bad.game",
+            blocked = setOf("com.bad.game"),
+        ) // scheduleStartHour=0, scheduleEndHour=24 by default
+        val d = PolicyEngine.evaluate(input)
+        assertTrue(d.blockApp)
+    }
 }

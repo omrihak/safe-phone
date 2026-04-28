@@ -69,4 +69,6 @@ data class PrefsDto(
     val partnerBlockAlertThreshold: Int,
     val partnerAlertPhoneDigits: String,
     val activeDaysOfWeek: List<Int>,
+    val scheduleStartHour: Int? = null,
+    val scheduleEndHour: Int? = null,
 )

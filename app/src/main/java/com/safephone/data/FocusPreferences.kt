@@ -63,6 +63,18 @@ class FocusPreferences(private val context: Context) {
             ?: (1..7).toSet()
     }
 
+    /**
+     * Hour of day (0–23) at which schedule enforcement starts.
+     * Defaults to 0 (midnight) so that existing installs are unaffected.
+     */
+    val scheduleStartHour: Flow<Int> = context.dataStore.data.map { it[KEY_SCHEDULE_START_HOUR] ?: 0 }
+
+    /**
+     * Hour of day (1–24) at which schedule enforcement ends (exclusive).
+     * Defaults to 24 (end of day) so that existing installs are unaffected.
+     */
+    val scheduleEndHour: Flow<Int> = context.dataStore.data.map { it[KEY_SCHEDULE_END_HOUR] ?: 24 }
+
     suspend fun hasDaltonizerSnapshot(): Boolean =
         context.dataStore.data.map { it[KEY_DALTONIZER_SNAP] == true }.first()
 
@@ -133,6 +145,14 @@ class FocusPreferences(private val context: Context) {
 
     suspend fun setActiveDaysOfWeek(days: Set<Int>) {
         context.dataStore.edit { it[KEY_ACTIVE_DAYS] = days.map { d -> d.toString() }.toSet() }
+    }
+
+    suspend fun setScheduleStartHour(hour: Int) {
+        context.dataStore.edit { it[KEY_SCHEDULE_START_HOUR] = hour }
+    }
+
+    suspend fun setScheduleEndHour(hour: Int) {
+        context.dataStore.edit { it[KEY_SCHEDULE_END_HOUR] = hour }
     }
 
     /**
@@ -213,5 +233,7 @@ class FocusPreferences(private val context: Context) {
         private val KEY_PARTNER_CLAIM_DAY = longPreferencesKey("partner_claim_day")
         private val KEY_PARTNER_CLAIM_SET = stringSetPreferencesKey("partner_claim_keys")
         private val KEY_ACTIVE_DAYS = stringSetPreferencesKey("active_days_of_week")
+        private val KEY_SCHEDULE_START_HOUR = intPreferencesKey("schedule_start_hour")
+        private val KEY_SCHEDULE_END_HOUR = intPreferencesKey("schedule_end_hour")
     }
 }
