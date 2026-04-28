@@ -169,6 +169,37 @@ describe("evaluatePolicy gating", () => {
     expect(out.reason.toLowerCase()).toContain("disabled");
   });
 
+  it("returns idle outside schedule hours", () => {
+    // baseArgs.now is Monday 12:00 UTC; set schedule 14–17 so noon is before start
+    const out = evaluatePolicy({
+      ...baseArgs,
+      snapshot: snapshotFixture({
+        prefs: { ...snapshotFixture().prefs, scheduleStartHour: 14, scheduleEndHour: 17 },
+      }),
+    });
+    expect(out.enforcing).toBe(false);
+    expect(out.reason.toLowerCase()).toContain("outside schedule hours");
+  });
+
+  it("enforces within schedule hours", () => {
+    // baseArgs.now is Monday 12:00 UTC; set schedule 9–17 so noon is within range
+    const out = evaluatePolicy({
+      ...baseArgs,
+      snapshot: snapshotFixture({
+        prefs: { ...snapshotFixture().prefs, scheduleStartHour: 9, scheduleEndHour: 17 },
+      }),
+    });
+    expect(out.enforcing).toBe(true);
+  });
+
+  it("defaults to all-day when scheduleStartHour/scheduleEndHour are absent", () => {
+    const snap = snapshotFixture();
+    delete snap.prefs.scheduleStartHour;
+    delete snap.prefs.scheduleEndHour;
+    const out = evaluatePolicy({ ...baseArgs, snapshot: snap });
+    expect(out.enforcing).toBe(true);
+  });
+
   it("falls back to the first profile when activeProfileId is unknown", () => {
     const out = evaluatePolicy({
       ...baseArgs,

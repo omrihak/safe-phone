@@ -43,6 +43,12 @@ export function evaluatePolicy({ snapshot, breakState, now }) {
     return idle("Off day – no rules scheduled", profile.name);
   }
 
+  const currentHour = now.getHours();
+  const scheduleStartHour = snapshot.prefs?.scheduleStartHour ?? 0;
+  const scheduleEndHour = snapshot.prefs?.scheduleEndHour ?? 24;
+  if (currentHour < scheduleStartHour || currentHour >= scheduleEndHour) {
+    return idle("Outside schedule hours", profile.name);
+  }
   const onBreak = !!(breakState?.breakEndMs && breakState.breakEndMs > now.getTime());
   if (onBreak) {
     return {

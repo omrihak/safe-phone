@@ -241,7 +241,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     composable("weekday_schedule") {
-                        FeatureScaffold(nav, "Weekday schedule") { padding ->
+                        FeatureScaffold(nav, "Schedule") { padding ->
                             WeekdayScheduleRoute(app, Modifier.padding(padding))
                         }
                     }
@@ -440,7 +440,7 @@ private fun HomeRoute(nav: androidx.navigation.NavController, app: SafePhoneApp)
             stringResource(R.string.partner_alert_subtitle),
             Icons.Outlined.Email,
         ),
-        HomeDestination("weekday_schedule", "Weekday schedule", "Days when rules apply", Icons.Outlined.CalendarMonth),
+        HomeDestination("weekday_schedule", "Schedule", "Days and hours when rules apply", Icons.Outlined.CalendarMonth),
         HomeDestination("breaks", "Break policy", "How breaks work", Icons.Outlined.Coffee),
         HomeDestination(
             "system_grayscale",
@@ -1604,6 +1604,11 @@ private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
     val prefs = app.prefs
     val scope = rememberCoroutineScope()
     val activeDays by prefs.activeDaysOfWeek.collectAsState(initial = (1..7).toSet())
+    val scheduleStartHour by prefs.scheduleStartHour.collectAsState(initial = 0)
+    val scheduleEndHour by prefs.scheduleEndHour.collectAsState(initial = 24)
+
+    var localStartHour by remember(scheduleStartHour) { mutableStateOf(scheduleStartHour.toString()) }
+    var localEndHour by remember(scheduleEndHour) { mutableStateOf(scheduleEndHour.toString()) }
 
     val days = remember {
         listOf(
@@ -1625,8 +1630,8 @@ private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(
-            "Select the days on which focus rules apply. " +
-                "On unselected days all rules are suspended and app use is unlimited.",
+            "Select the days and hours during which focus rules apply. " +
+                "On unselected days, or outside the scheduled hours, all rules are suspended.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1670,6 +1675,83 @@ private fun WeekdayScheduleRoute(app: SafePhoneApp, modifier: Modifier = Modifie
                 .joinToString(", ") { (_, label) -> label }
             Text(
                 "Rules apply on: $selectedLabels",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        HorizontalDivider()
+
+        Text(
+            "Active hours",
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            "Rules enforce only between the start hour and end hour (24-hour clock). " +
+                "Default is 0–24 (all day).",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        var hourRangeError by remember { mutableStateOf(false) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = localStartHour,
+                onValueChange = { localStartHour = it.filter { char -> char.isDigit() }.take(2) },
+                modifier = Modifier.width(80.dp),
+                label = { Text("Start") },
+                placeholder = { Text("0") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+            Text("to", style = MaterialTheme.typography.bodyMedium)
+            OutlinedTextField(
+                value = localEndHour,
+                onValueChange = { localEndHour = it.filter { char -> char.isDigit() }.take(2) },
+                modifier = Modifier.width(80.dp),
+                label = { Text("End") },
+                placeholder = { Text("24") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+            FilledTonalButton(
+                onClick = {
+                    val start = localStartHour.toIntOrNull()?.coerceIn(0, 23) ?: 0
+                    val end = localEndHour.toIntOrNull()?.coerceIn(1, 24) ?: 24
+                    if (start >= end) {
+                        hourRangeError = true
+                    } else {
+                        hourRangeError = false
+                        scope.launch {
+                            prefs.setScheduleStartHour(start)
+                            prefs.setScheduleEndHour(end)
+                        }
+                    }
+                },
+            ) {
+                Text("Save", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        if (hourRangeError) {
+            Text(
+                "⚠ Start hour must be less than end hour.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        val startHour = scheduleStartHour.coerceIn(0, 23)
+        val endHour = scheduleEndHour.coerceIn(1, 24)
+        if (startHour == 0 && endHour == 24) {
+            Text(
+                "Rules enforce all day.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text(
+                "Rules enforce from %02d:00 to %02d:00.".format(startHour, endHour),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

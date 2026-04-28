@@ -25,6 +25,10 @@ data class PolicyInput(
     val calendarStricterActive: Boolean,
     /** Days of the week on which focus rules are enforced (1=Mon … 7=Sun). Defaults to all days. */
     val activeDaysOfWeek: Set<Int> = (1..7).toSet(),
+    /** Hour of day (0–23) at which schedule enforcement starts. Defaults to 0. */
+    val scheduleStartHour: Int = 0,
+    /** Hour of day (1–24) at which schedule enforcement ends (exclusive). Defaults to 24. */
+    val scheduleEndHour: Int = 24,
 )
 
 data class PolicyDecision(
@@ -47,6 +51,11 @@ object PolicyEngine {
         val todayDow = input.now.atZone(input.zone).dayOfWeek.value
         if (input.activeDaysOfWeek.isEmpty() || todayDow !in input.activeDaysOfWeek) {
             return idle("Off day – no rules scheduled")
+        }
+
+        val currentHour = input.now.atZone(input.zone).hour
+        if (currentHour < input.scheduleStartHour || currentHour >= input.scheduleEndHour) {
+            return idle("Outside schedule hours")
         }
 
         val withinSchedule = true

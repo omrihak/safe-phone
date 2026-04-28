@@ -65,6 +65,8 @@ class PolicySnapshotRepository(
             partnerBlockAlertThreshold = prefs.partnerBlockAlertThreshold.first(),
             partnerAlertPhoneDigits = prefs.partnerAlertPhoneDigits.first(),
             activeDaysOfWeek = prefs.activeDaysOfWeek.first().sorted(),
+            scheduleStartHour = prefs.scheduleStartHour.first(),
+            scheduleEndHour = prefs.scheduleEndHour.first(),
         )
 
         PolicySnapshot(
@@ -118,6 +120,8 @@ class PolicySnapshotRepository(
         prefs.setPartnerBlockAlertThreshold(p.partnerBlockAlertThreshold)
         prefs.setPartnerAlertPhoneDigits(p.partnerAlertPhoneDigits)
         prefs.setActiveDaysOfWeek(p.activeDaysOfWeek.toSet())
+        p.scheduleStartHour?.let { prefs.setScheduleStartHour(it) }
+        p.scheduleEndHour?.let { prefs.setScheduleEndHour(it) }
 
         ApplyResult.Applied
     }
